@@ -26,7 +26,7 @@ CMD: ['docker-compose', 'exec', 'anchore-db', '/bin/bash', '-c', 'pg_dump -U pos
 Stopping aevolume_anchore-engine_1 ... done
 Stopping aevolume_anchore-db_1 ... done
 CMD: ['docker-compose', 'stop'] OUTPUT: 
-CMD: ['docker', 'commit', 'aevolume_anchore-db_1', 'anchore/anchore-db-preload:latest'] OUTPUT: sha256:764cf0b7ef0d03fa8f42f98ee327a8ec1475bd53b9bc204b93a2b3045cb32443
+CMD: ['docker', 'commit', 'aevolume_anchore-db_1', 'anchore/engine-db-preload:latest'] OUTPUT: sha256:764cf0b7ef0d03fa8f42f98ee327a8ec1475bd53b9bc204b93a2b3045cb32443
 
 Removing aevolume_anchore-engine_1 ... done
 Removing aevolume_anchore-db_1 ... done
@@ -35,5 +35,5 @@ CMD: ['docker-compose', 'down', '--volumes'] OUTPUT:
 SUCCESS!
 ```
 
-4) the script will have brought down the anchore-engine/db containers, and will have created a new image tagged locally as 'anchore/anchore-db-preload:latest'.  That image should now be able to be pushed to 'docker.io/anchore/anchore-db-preload:latest' and used instead of a stock postgres:9 container for an anchore-engine DB.
+4) the script will have brought down the anchore-engine/db containers, and will have created a new image tagged locally as 'anchore/engine-db-preload:latest'.  That image should now be able to be pushed to 'docker.io/anchore/engine-db-preload:latest' and used instead of a stock postgres:9 container for an anchore-engine DB.
 

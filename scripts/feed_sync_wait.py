@@ -72,7 +72,7 @@ if done:
     cmds = [
         "docker-compose exec anchore-db /bin/bash -c".split() + ['pg_dump -U postgres -Z 9 > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'],
         'docker-compose stop'.split(),
-        'docker commit aevolumeprepop_anchore-db_1 anchore/anchore-engine:anchore-engine-db-prepop'.split(),
+        'docker commit aevolume_anchore-db_1 anchore/engine-db-preload:latest'.split(),
         'docker-compose down --volumes'.split(),
     ]
     for cmd in cmds:
