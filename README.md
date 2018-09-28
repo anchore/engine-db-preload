@@ -4,10 +4,12 @@ Some scripting to handling creation of preloaded anchore DB container
 The purpose of this repo is to host scripts to coordinate the creation of pre-populated database containers for anchore-engine.
 
 1) set up a regular docker-compose-style setup for anchore-engine
-2) run:
+2) run the feed_sync_wait.py command from this repo.  The parameters are 'number of minutes to wait total for the check to complete' and 'interval between polling updates to see if feed sync is complete'.  In the following example, the values represent 'wait 30 minutes before bailing out, with 5 second intervals between polling attempts'.
 
 ```
+cd ~/aevolume/
 docker-compose up -d
+...
 /path/to/scripts/feed_sync_wait.py 30 5
 ```
 
