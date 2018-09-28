@@ -16,24 +16,39 @@ docker-compose up -d
 3) if successful, the end of this run will look like:
 
 ```
+got container IDs: engine=ee40c64242830f4bd75be25a0b9a2c0e044bb2ce4ca95f69e8c7ccc672391326 db=96f50d2b33f175783e0893ed4b1b7f11614036b0f564dd4e441ef320cff52138
+engine not up yet - exception: ('Connection aborted.', error(104, 'Connection reset by peer'))
+engine not up yet - exception: ('Connection aborted.', error(104, 'Connection reset by peer'))
+engine not up yet - exception: ('Connection aborted.', error(104, 'Connection reset by peer'))
 ...
 ...
 ...
-attempt 100 / 150.0
-got a good 200 response
-got last full sync time - good to go!: 2018-09-28T19:21:28.346996Z
-CMD: ['docker-compose', 'exec', 'anchore-db', '/bin/bash', '-c', 'pg_dump -U postgres -Z 9 > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'] OUTPUT: 
-Stopping aevolume_anchore-engine_1 ... done
-Stopping aevolume_anchore-db_1 ... done
-CMD: ['docker-compose', 'stop'] OUTPUT: 
-CMD: ['docker', 'commit', 'aevolume_anchore-db_1', 'anchore/engine-db-preload:latest'] OUTPUT: sha256:764cf0b7ef0d03fa8f42f98ee327a8ec1475bd53b9bc204b93a2b3045cb32443
+verified that anchore-engine is up and ready
 
-Removing aevolume_anchore-engine_1 ... done
-Removing aevolume_anchore-db_1 ... done
-Removing network aevolume_default
-CMD: ['docker-compose', 'down', '--volumes'] OUTPUT: 
-SUCCESS!
+attempt 0 / 600
+got last full sync time - good to go!: 2018-09-28T22:59:47.912693Z
+verified feed sync has completed
+CMD: ['docker-compose', 'stop', 'anchore-engine']
+Stopping testtest_anchore-engine_1 ... 
+Stopping testtest_anchore-engine_1 ... done
+	OUTPUT: 
+CMD: ['docker-compose', 'exec', 'anchore-db', '/bin/bash', '-c', 'pg_dump -U postgres -Z 9 > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz']
+	OUTPUT: 
+
+CMD: ['docker-compose', 'stop']
+Stopping testtest_anchore-db_1 ... done
+	OUTPUT: 
+CMD: ['docker', 'commit', '96f50d2b33f175783e0893ed4b1b7f11614036b0f564dd4e441ef320cff52138', 'anchore/engine-db-preload:latest']
+	OUTPUT: sha256:3207abeeeb6cb25d6e06714c0d0ccca9eb1a4c18f5aed61486a8cbe6f3436faa
+
+CMD: ['docker-compose', 'down', '--volumes']
+Removing testtest_anchore-engine_1 ... done
+Removing testtest_anchore-db_1 ... done
+Removing network testtest_default
+	OUTPUT: 
+SUCCESS: new prepopulated container image created: anchore/engine-db-preload:latest
 ```
 
 4) the script will have brought down the anchore-engine/db containers, and will have created a new image tagged locally as 'anchore/engine-db-preload:latest'.  That image should now be able to be pushed to 'docker.io/anchore/engine-db-preload:latest' and used instead of a stock postgres:9 container for an anchore-engine DB.
 
+If the script fails for any reason, it will bail with exit code 1, otherwise it will exit 0 on success.
