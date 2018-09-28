@@ -64,9 +64,13 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
             r = requests.get(feeds_url, auth=('admin', 'foobar'), verify=False, timeout=20)
             if r.status_code == 200:
                 data = json.loads(r.text)
-                sync_record = data[0]
-                last_sync_time = sync_record.get('last_full_sync', None)
-                if last_sync_time:
+                all_synced = True
+                for sync_record in data:
+                    last_sync_time = sync_record.get('last_full_sync', None)
+                    if not last_sync_time:
+                        all_synced = False
+
+                if all_synced:
                     print ("got last full sync time - good to go!: {}".format(last_sync_time))
                     done=True
                 else:
@@ -74,13 +78,14 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
                     total = 0
                     synced_names = []
                     unsynced_names = []
-                    for group in sync_record.get('groups', []):
-                        if group.get('last_sync', None):
-                            synced = synced+1
-                            synced_names.append(group.get('name', ""))
-                        else:
-                            unsynced_names.append(group.get('name', ""))
-                        total = total+1
+                    for sync_record in data:
+                        for group in sync_record.get('groups', []):
+                            if group.get('last_sync', None):
+                                synced = synced+1
+                                synced_names.append(group.get('name', ""))
+                            else:
+                                unsynced_names.append(group.get('name', ""))
+                            total = total+1
                     print ("not done yet {} / {} groups completed".format(synced, total))
                     print ("\tsynced: {}\n\tunsynced: {}".format(synced_names, unsynced_names))
             else:
