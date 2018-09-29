@@ -57,7 +57,9 @@ def verify_anchore_engine_available(user='admin', pw='foobar', timeout=300, heal
 
 def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/feeds", timer=1.0):
     start_ts = time.time()
+    good_count_retries = 5
     done = False
+    good_count = 0
     while not done:
         print ("\nattempt {} / {}".format(int(time.time() - start_ts), timeout))
         try:
@@ -71,8 +73,11 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
                         all_synced = False
 
                 if all_synced:
-                    print ("got last full sync time - good to go!: {}".format(last_sync_time))
-                    done=True
+                    print ("detected all synced - ensuring by retrying {} / {}".format(good_count, good_count_retries))
+                    good_count = good_count + 1
+                    if good_count > good_count_retries:
+                        print ("got last full sync time, for all feeds - ready to go!: {}".format(last_sync_time))
+                        done=True
                 else:
                     synced = 0
                     total = 0
