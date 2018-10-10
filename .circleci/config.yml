@@ -1,0 +1,145 @@
+# CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/configuration-reference/ for more details
+#
+# The following environment variables must be set in the circleci project UI
+# - $IMAGE_NAME -> name of image to push to dockerhub
+# - $DOCKER_USER -> dockerhub user with permissions to repo
+# - $DOCKER_PASS -> password for dockerhub user
+#
+# Note: YAML anchors allow an object to be re-used, reducing duplication.
+# The ampersand declares an alias for an object, then later the `<<: *name`
+# syntax dereferences it.
+# See http://blog.daemonl.com/2016/02/yaml.html
+# To validate changes, use an online parser, eg.
+# http://yaml-online-parser.appspot.com/
+#
+# Define YAML anchors
+.load_docker_image: &load_docker_image
+  run:
+    name: Load Docker image layer cache
+    command: |
+      docker load -i "/home/circleci/workspace/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar" || true
+
+.attach_workspace: &attach_workspace
+  attach_workspace:
+      at: /home/circleci/workspace/
+
+.install_dependencies: &install_dependencies
+  run:
+    name: install dependencies
+    command: |
+      pip install --upgrade pip
+      pip install --upgrade docker-compose
+
+# Start circleci configuration
+version: 2
+jobs:
+  build:
+    machine: true
+    working_directory: ~/build
+    steps:
+      - checkout
+      - <<: *install_dependencies
+      - run:
+          name: docker compose
+          command: |
+            git clone git@github.com:anchore/anchore-engine.git ~/build/anchore-engine
+            cd ~/build/anchore-engine/scripts/docker-compose
+            sed -i "s|/root|${PWD}|" docker-compose.yaml
+            mkdir config db
+            curl -o config/config.yaml https://raw.githubusercontent.com/anchore/anchore-engine/master/scripts/docker-compose/config.yaml
+            docker-compose up -d
+            docker logs docker-compose_anchore-engine_1
+      - run:
+          name: run build script
+          command: |
+            cd ~/build/anchore-engine/scripts/docker-compose
+            python ~/build/scripts/feed_sync_wait.py 90 10
+            docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:ci"
+      - run:
+          name: Save Docker image
+          command: |
+            rm -rf /home/circleci/workspace/caches/
+            mkdir /home/circleci/workspace/caches/ -p
+            docker save -o "/home/circleci/workspace/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar" "${IMAGE_NAME}:ci"
+      - persist_to_workspace:
+          root: /home/circleci/workspace/
+          paths:
+            - caches/*
+
+  functional_tests:
+    machine: true
+    working_directory: ~/build
+    steps:
+      - checkout
+      - <<: *attach_workspace
+      - <<: *load_docker_image
+      - <<: *install_dependencies
+      - run:
+          name: docker compose
+          command: |
+            git clone git@github.com:anchore/anchore-engine.git ~/build/anchore-engine
+            cd ~/build/anchore-engine/scripts/docker-compose
+            sed -i "s|/root|${PWD}|; s|postgres:9|${IMAGE_NAME}:ci|" docker-compose.yaml
+            mkdir config db
+            curl -o config/config.yaml https://raw.githubusercontent.com/anchore/anchore-engine/master/scripts/docker-compose/config.yaml
+            docker-compose up -d
+            docker logs docker-compose_anchore-engine_1
+      - run:
+          name: run test
+          command: |
+            docker run -td --net=host --name anchore-cli docker.io/anchore/engine-cli:latest tail -f /dev/null
+            sleep 60
+            docker logs docker-compose_anchore-engine_1
+            docker exec anchore-cli anchore-cli --u admin --p foobar system status
+            cd ~/build/anchore-engine/scripts/tests
+            python aetest.py docker.io/alpine:latest anchore-cli
+            python aefailtest.py docker.io/alpine:latest anchore-cli
+
+  push_dockerhub:
+    docker:
+      - image: docker:stable
+    steps:
+      - setup_remote_docker
+      - <<: *attach_workspace
+      - <<: *load_docker_image
+      - run:
+          name: Push to Dockerhub
+          command: |
+            docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+            if [ "$CIRCLE_BRANCH" == "master" ]; then
+              docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:latest"
+              docker push "${IMAGE_NAME}:latest"
+            else
+              docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${CIRCLE_BRANCH}"
+              docker push "${IMAGE_NAME}:${CIRCLE_BRANCH}"
+            fi
+
+workflows:
+  version: 2
+  default_workflow:
+    jobs:
+      - build
+      - functional_tests:
+          requires:
+            - build
+      - push_dockerhub:
+          requires:
+            - functional_tests
+  nightly_build:
+    triggers:
+      - schedule:
+          cron: "8 0 * * *"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - build
+      - functional_tests:
+          requires:
+            - build
+      - push_dockerhub:
+          requires:
+            - functional_tests
