@@ -48,14 +48,24 @@ jobs:
             cd ~/build/anchore-engine/scripts/docker-compose
             sed -i "s|/root|${PWD}|" docker-compose.yaml
             mkdir config db
-            curl -o config/config.yaml https://raw.githubusercontent.com/anchore/anchore-engine/master/scripts/docker-compose/config.yaml
+            cp config.yaml config/
+            cat << EOF >> config/config.yaml
+            \n
+            feeds:
+              sync_enabled: True
+              selective_sync:
+                enabled: True
+                feeds:
+                  vulnerabilities: True
+                  nvd: True
+            EOF
             docker-compose up -d
             docker logs docker-compose_anchore-engine_1
       - run:
           name: run build script
           command: |
             cd ~/build/anchore-engine/scripts/docker-compose
-            python ~/build/scripts/feed_sync_wait.py 90 10
+            python ~/build/scripts/feed_sync_wait.py 180 10
             docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:ci"
       - run:
           name: Save Docker image
@@ -83,7 +93,7 @@ jobs:
             cd ~/build/anchore-engine/scripts/docker-compose
             sed -i "s|/root|${PWD}|; s|postgres:9|${IMAGE_NAME}:ci|" docker-compose.yaml
             mkdir config db
-            curl -o config/config.yaml https://raw.githubusercontent.com/anchore/anchore-engine/master/scripts/docker-compose/config.yaml
+            cp config.yaml config/
             docker-compose up -d
             docker logs docker-compose_anchore-engine_1
       - run:
