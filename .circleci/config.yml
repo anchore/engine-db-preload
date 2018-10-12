@@ -65,7 +65,7 @@ jobs:
           name: run build script
           command: |
             cd ~/build/anchore-engine/scripts/docker-compose
-            python ~/build/scripts/feed_sync_wait.py 180 10
+            python ~/build/scripts/feed_sync_wait.py 120 10
             docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:ci"
       - run:
           name: Save Docker image

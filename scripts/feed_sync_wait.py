@@ -21,7 +21,7 @@ def discover_anchore_ids():
     if not engine_id or not db_id:
         raise Exception("bailing out - anchore-engine (discovered id={}) and anchore-db (discovered_id={}) must be running before executing this script".format(engine_id, db_id))
 
-    return(engine_id, db_id) 
+    return(engine_id, db_id)
 
 def verify_anchore_engine_available(user='admin', pw='foobar', timeout=300, health_url="http://localhost:8228/health", test_url="http://localhost:8228/v1/system/feeds"):
     done = False
@@ -51,7 +51,7 @@ def verify_anchore_engine_available(user='admin', pw='foobar', timeout=300, heal
             print ("engine not up yet - exception: {}".format(err))
         time.sleep(0.5)
         if time.time() - start_ts >= timeout:
-            raise Exception("timed out after {} seconds".format(timeout))        
+            raise Exception("timed out after {} seconds".format(timeout))
 
     return(True)
 
@@ -114,8 +114,8 @@ if len(sys.argv) <= 1:
 
 try:
     minutes = int(sys.argv[1])
-    if minutes > 60:
-        minutes = 60
+    if minutes > 120:
+        minutes = 120
     elif minutes < 5:
         minutes = 5
 except:
