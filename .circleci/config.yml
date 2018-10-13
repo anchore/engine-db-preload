@@ -100,8 +100,8 @@ jobs:
           name: run test
           command: |
             docker run -td --net=host --name anchore-cli docker.io/anchore/engine-cli:latest tail -f /dev/null
-            sleep 60
-            docker logs docker-compose_anchore-engine_1
+            curl -o ~/build/anchore_ci_tools.py https://raw.githubusercontent.com/anchore/ci-tools/master/scripts/anchore_ci_tools.py
+            python ~/build/anchore_ci_tools.py --wait
             docker exec anchore-cli anchore-cli --u admin --p foobar system status
             cd ~/build/anchore-engine/scripts/tests
             python aetest.py docker.io/alpine:latest anchore-cli
