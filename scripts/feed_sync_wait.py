@@ -114,8 +114,8 @@ if len(sys.argv) <= 1:
 
 try:
     minutes = int(sys.argv[1])
-    if minutes > 120:
-        minutes = 120
+    if minutes > 180:
+        minutes = 180
     elif minutes < 5:
         minutes = 5
 except:
