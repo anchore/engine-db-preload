@@ -140,7 +140,7 @@ workflows:
   nightly_build:
     triggers:
       - schedule:
-          cron: "8 0 * * *"
+          cron: "0 8 * * *"
           filters:
             branches:
               only:
