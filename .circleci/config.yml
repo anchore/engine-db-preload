@@ -130,7 +130,7 @@ jobs:
             docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
             if [ "$CIRCLE_BRANCH" == "master" ]; then
               docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:latest"
-              docker tag "${IMAGE_NAME}:ci" "${IMAGER_NAME}:${ANCHORE_VERSION}"
+              docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${ANCHORE_VERSION}"
               docker push "${IMAGE_NAME}:latest"
               docker push "${IMAGE_NAME}:${ANCHORE_VERSION}"
             else
