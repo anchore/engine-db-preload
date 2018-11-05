@@ -71,6 +71,7 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
                     last_sync_time = sync_record.get('last_full_sync', None)
                     if not last_sync_time:
                         all_synced = False
+                        break
 
                 if all_synced:
                     print ("detected all synced - ensuring by retrying {} / {}".format(good_count, good_count_retries))
