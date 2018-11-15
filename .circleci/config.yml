@@ -53,14 +53,13 @@ commands:
             export ANCHORE_VERSION=$(cat /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt)
             docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
             if [ "$CIRCLE_BRANCH" == "master" ]; then
-              docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:latest"
               docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${ANCHORE_VERSION}"
-              docker push "${IMAGE_NAME}:latest"
               docker push "${IMAGE_NAME}:${ANCHORE_VERSION}"
             else
               docker tag "${IMAGE_NAME}:ci" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}"
               docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}"
             fi
+
   get_release_tag:
     description: Gets the latest release tag from GitHub for the specified branch
     parameters:
@@ -83,7 +82,7 @@ commands:
     steps:
       - run:
           name: Load Docker image
-          command: docker load -i "/home/circleci/workspace/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar"
+          command: docker load -i "/home/circleci/workspace/<< parameters.git_branch >>/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar"
 
   run_tests:
     description: Run aetests from anchore-engine repo
@@ -113,8 +112,8 @@ commands:
       - run:
           name: Save docker image to tarball
           command: |
-            rm -rf /home/circleci/workspace/caches/
-            mkdir /home/circleci/workspace/caches/ -p
+            rm -rf /home/circleci/workspace/<< parameters.git_branch >>/caches/
+            mkdir /home/circleci/workspace/<< parameters.git_branch >>/caches/ -p
             docker save -o "/home/circleci/workspace/<< parameters.git_branch >>/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar" "${IMAGE_NAME}:ci"
 
   setup_anchore_engine:
@@ -192,6 +191,52 @@ jobs:
       - dockerhub_push:
           git_branch: "0.2"
 
+  v3_build:
+    machine: true
+    working_directory: /home/circleci/build
+    steps:
+      - checkout
+      - <<: *install_dependencies
+      - get_release_tag:
+          git_branch: "master"
+      - setup_anchore_engine:
+          git_branch: "master"
+      - build_image
+      - save_image:
+          git_branch: "master"
+      - persist_to_workspace:
+          root: /home/circleci/workspace/
+          paths:
+            - master/*
+
+  v3_tests:
+    machine: true
+    working_directory: /home/circleci/build
+    steps:
+      - checkout
+      - <<: *attach_workspace
+      - load_image:
+          git_branch: "master"
+      - run:
+          name: Setup docker-compose to use newly built image
+          command: |
+            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" /home/circleci/build/.circleci/docker-compose.yaml
+      - setup_anchore_engine:
+          git_branch: "master"
+      - run_tests:
+          git_branch: "master"
+
+  v3_push:
+    docker:
+      - image: docker:stable
+    steps:
+      - setup_remote_docker
+      - <<: *attach_workspace
+      - load_image:
+          git_branch: "master"
+      - dockerhub_push:
+          git_branch: "master"
+
 workflows:
   default_workflow:
     jobs:
@@ -202,6 +247,13 @@ workflows:
       - v2_push:
           requires:
             - v2_tests
+      - v3_build
+      - v3_tests:
+          requires:
+            - v3_build
+      - v3_push:
+          requires:
+            - v3_tests
   nightly_build:
     triggers:
       - schedule:
@@ -216,5 +268,12 @@ workflows:
           requires:
             - v2_build
       - v2_push:
+          requires:
+            - v2_tests
+      - v3_build
+      - v3_tests:
+          requires:
+            - v3_build
+      - v3_push:
           requires:
             - v2_tests
