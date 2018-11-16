@@ -52,12 +52,13 @@ commands:
           command: |
             export ANCHORE_VERSION=$(cat /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt)
             docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+            echo ${IMAGE_NAME}:${ANCHORE_VERSION}
             if [ "$CIRCLE_BRANCH" == "master" ]; then
               docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${ANCHORE_VERSION}"
               docker push "${IMAGE_NAME}:${ANCHORE_VERSION}"
             else
-              docker tag "${IMAGE_NAME}:ci" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}"
-              docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}"
+              docker tag "${IMAGE_NAME}:ci" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${ANCHORE_VERSION}"
+              docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${ANCHORE_VERSION}"
             fi
 
   get_release_tag:
@@ -128,6 +129,7 @@ commands:
           name: Setup anchore engine
           command: |
             export ANCHORE_VERSION=$(cat /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt)
+            echo $ANCHORE_VERSION
             cd .circleci
             sed -i "s/ANCHORE_VERSION/${ANCHORE_VERSION}/" docker-compose.yaml
             mkdir config db
@@ -139,6 +141,7 @@ commands:
               selective_sync:
                 enabled: True
                 feeds:
+                  packages: False
                   vulnerabilities: True
                   nvd: True
             EOF
