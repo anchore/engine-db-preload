@@ -31,15 +31,6 @@ version: 2.1
 orbs:
   anchore: anchore/anchore-engine@1.0.0
 commands:
-  attach_workspace:
-    description: Attach versioned workspace
-    parameters:
-      git_branch:
-        type: string
-    steps:
-      - attach_workspace:
-          at: /home/circleci/workspace/<< git_branch >>/
-
   build_image:
     description: Build the container image
     steps:
