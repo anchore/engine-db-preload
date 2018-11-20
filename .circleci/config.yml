@@ -31,6 +31,15 @@ version: 2.1
 orbs:
   anchore: anchore/anchore-engine@1.0.0
 commands:
+  attach_workspace:
+    description: Attach versioned workspace
+    parameters:
+      git_branch:
+        type: string
+    steps:
+      - attach_workspace:
+          at: /home/circleci/workspace/<< git_branch >>/
+
   build_image:
     description: Build the container image
     steps:
@@ -56,6 +65,10 @@ commands:
             if [ "$CIRCLE_BRANCH" == "master" ]; then
               docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${ANCHORE_VERSION}"
               docker push "${IMAGE_NAME}:${ANCHORE_VERSION}"
+              if [ << parameters.git_branch >> == "master" ]; then
+                docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:latest"
+                docker push "${IMAGE_NAME}:latest"
+              fi
             else
               docker tag "${IMAGE_NAME}:ci" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${ANCHORE_VERSION}"
               docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${ANCHORE_VERSION}"
@@ -279,4 +292,4 @@ workflows:
             - v3_build
       - v3_push:
           requires:
-            - v2_tests
+            - v3_tests
