@@ -25,6 +25,7 @@
     command: |
       pip install --upgrade pip
       pip install --upgrade docker-compose
+      pip install --upgrade anchorecli
 
 # Start circleci configuration
 version: 2.1
@@ -51,7 +52,7 @@ commands:
           name: Push image to Dockerhub
           command: |
             export ANCHORE_VERSION=$(cat /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt)
-            docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
             echo ${IMAGE_NAME}:${ANCHORE_VERSION}
             if [ "$CIRCLE_BRANCH" == "master" ]; then
               docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${ANCHORE_VERSION}"
@@ -205,6 +206,52 @@ jobs:
       - checkout
       - <<: *install_dependencies
       - get_release_tag:
+          git_branch: "0.3"
+      - setup_anchore_engine:
+          git_branch: "0.3"
+      - build_image
+      - save_image:
+          git_branch: "0.3"
+      - persist_to_workspace:
+          root: /home/circleci/workspace/
+          paths:
+            - 0.3/*
+
+  v3_tests:
+    machine: true
+    working_directory: /home/circleci/build
+    steps:
+      - checkout
+      - <<: *attach_workspace
+      - load_image:
+          git_branch: "0.3"
+      - run:
+          name: Setup docker-compose to use newly built image
+          command: |
+            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" /home/circleci/build/.circleci/docker-compose.yaml
+      - setup_anchore_engine:
+          git_branch: "0.3"
+      - run_tests:
+          git_branch: "0.3"
+
+  v3_push:
+    docker:
+      - image: docker:stable
+    steps:
+      - setup_remote_docker
+      - <<: *attach_workspace
+      - load_image:
+          git_branch: "0.3"
+      - dockerhub_push:
+          git_branch: "0.3"
+
+  master_build:
+    machine: true
+    working_directory: /home/circleci/build
+    steps:
+      - checkout
+      - <<: *install_dependencies
+      - get_release_tag:
           git_branch: "master"
       - setup_anchore_engine:
           git_branch: "master"
@@ -216,7 +263,7 @@ jobs:
           paths:
             - master/*
 
-  v3_tests:
+  master_tests:
     machine: true
     working_directory: /home/circleci/build
     steps:
@@ -233,7 +280,7 @@ jobs:
       - run_tests:
           git_branch: "master"
 
-  v3_push:
+  master_push:
     docker:
       - image: docker:stable
     steps:
@@ -261,10 +308,18 @@ workflows:
       - v3_push:
           requires:
             - v3_tests
+      - master_build
+      - master_tests:
+          requires:
+            - master_build
+      - master_push:
+          requires:
+            - master_tests
+  
   nightly_build:
     triggers:
       - schedule:
-          cron: "0 10 * * *"
+          cron: "0 9 * * *"
           filters:
             branches:
               only:
@@ -284,3 +339,10 @@ workflows:
       - v3_push:
           requires:
             - v3_tests
+      - master_build
+      - master_tests:
+          requires:
+            - master_build
+      - master_push:
+          requires:
+            - master_tests
