@@ -1,0 +1,105 @@
+# Anchore Service Configuration File
+#
+
+# General system-wide configuration options, these should not need to
+# be altered for basic operation
+#
+service_dir: '/home/anchore/.anchore_engine'
+log_level: 'INFO'
+cleanup_images: True
+host_id: '${ANCHORE_HOST_ID}'
+internal_ssl_verify: False
+auto_restart_services: True
+
+feeds:
+  sync_enabled: True
+  ssl_verify: True
+  selective_sync:
+    enabled: True
+    feeds:
+      vulnerabilities: True
+      packages: False
+      nvd: True
+      snyk: False
+  anonymous_user_username: anon@ancho.re
+  anonymous_user_password: pbiU2RYZ2XrmYQ
+  url: 'https://ancho.re/v1/service/feeds'
+  client_url: 'https://ancho.re/v1/account/users'
+  token_url: 'https://ancho.re/oauth/token'
+  connection_timeout_seconds: 3
+  read_timeout_seconds: 60
+
+default_admin_password: 'foobar'
+default_admin_email: 'admin@myanchore'
+
+credentials:
+  users:
+     admin:
+       password: 'foobar'
+       email: 'admin@myemail.com'
+
+  database:
+    db_connect: 'postgresql+pg8000://postgres:mysecretpassword@anchore-db:5432/postgres'
+    db_connect_args:
+      timeout: 120
+      ssl: False
+    db_pool_size: 30
+    db_pool_max_overflow: 100
+services:
+  apiext:
+    enabled: True
+    require_auth: True
+    endpoint_hostname: '${ANCHORE_ENDPOINT_HOSTNAME}'
+    listen: '0.0.0.0'
+    port: 8228
+    authorization_handler: native
+  catalog:
+    enabled: True
+    require_auth: True
+    endpoint_hostname: '${ANCHORE_ENDPOINT_HOSTNAME}'
+    listen: '0.0.0.0'
+    port: 8082
+    archive:
+      compression:
+        enabled: False
+        min_size_kbytes: 100
+      storage_driver:
+        name: db
+        config: {}
+    cycle_timer_seconds: '1'
+    cycle_timers:
+      image_watcher: 3600
+      policy_eval: 3600
+      vulnerability_scan: 14400
+      analyzer_queue: 5
+      notifications: 30
+      service_watcher: 15
+      policy_bundle_sync: 300
+      repo_watcher: 60
+  simplequeue:
+    enabled: True
+    require_auth: True
+    endpoint_hostname: '${ANCHORE_ENDPOINT_HOSTNAME}'
+    listen: '0.0.0.0'
+    port: 8083
+  analyzer:
+    enabled: True
+    require_auth: True
+    cycle_timer_seconds: 1
+    cycle_timers:
+      image_analyzer: 5
+    max_threads: 1
+    analyzer_driver: 'nodocker'
+    endpoint_hostname: '${ANCHORE_ENDPOINT_HOSTNAME}'
+    listen: '0.0.0.0'
+    port: 8084
+  policy_engine:
+    enabled: True
+    require_auth: True
+    endpoint_hostname: '${ANCHORE_ENDPOINT_HOSTNAME}'
+    listen: '0.0.0.0'
+    port: 8087
+    cycle_timer_seconds: 1
+    cycle_timers:
+      feed_sync: 21600 # 6 hours between feed syncs
+      feed_sync_checker: 3600 # 1 hour between checks to see if there needs to be a task queued

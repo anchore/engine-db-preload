@@ -157,7 +157,7 @@ print ("verified feed sync has completed")
 
 # finally, run each of these commands in series to dump the database SQL, stop the containers, commit the DB container as a new image, and bring tear everything else down
 exclude_opts = ' '.join(['--exclude-table-data={}'.format(x) for x in ['anchore', 'users', 'services', 'leases', 'tasks', 'queues', 'queuemeta', 'queues', 'accounts', 'account_users', 'user_access_credentials']])
-final_prepop_container_image = "anchore/engine-db-preload:latest"
+final_prepop_container_image = "anchore/engine-db-preload:dev"
 cmds = [
     'docker-compose stop anchore-engine'.split(),
     "docker-compose exec anchore-db /bin/bash -c".split() + ['pg_dump -U postgres -Z 9 {} > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'.format(exclude_opts)],

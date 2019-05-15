@@ -4,15 +4,6 @@
 #
 # The following environment variables must be set in the circleci project UI
 # - $IMAGE_NAME -> name of image to push to dockerhub
-# - $DOCKER_USER -> dockerhub user with permissions to repo
-# - $DOCKER_PASS -> password for dockerhub user
-#
-# Note: YAML anchors allow an object to be re-used, reducing duplication.
-# The ampersand declares an alias for an object, then later the `<<: *name`
-# syntax dereferences it.
-# See http://blog.daemonl.com/2016/02/yaml.html
-# To validate changes, use an online parser, eg.
-# http://yaml-online-parser.appspot.com/
 #
 # Define YAML anchors
 .attach_workspace: &attach_workspace
@@ -29,292 +20,90 @@
 
 # Start circleci configuration
 version: 2.1
-orbs:
-  anchore: anchore/anchore-engine@1.0.0
-commands:
+jobs:
   build_image:
-    description: Build the container image
-    steps:
-      - run:
-          name: Build image
-          command: |
-            cd .circleci
-            python /home/circleci/build/scripts/feed_sync_wait.py 180 10
-            docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:ci"
-
-  dockerhub_push:
-    description: Push image to dockerhub
     parameters:
-      git_branch:
+      version:
         type: string
+        default: latest
+    machine: true
     steps:
+      - checkout
+      - <<: *install_dependencies
       - run:
-          name: Push image to Dockerhub
+          name: setup_anchore_engine
           command: |
-            export ANCHORE_VERSION=$(cat /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt)
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            echo ${IMAGE_NAME}:${ANCHORE_VERSION}
-            if [ "$CIRCLE_BRANCH" == "master" ]; then
-              docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:${ANCHORE_VERSION}"
-              docker push "${IMAGE_NAME}:${ANCHORE_VERSION}"
-              if [ << parameters.git_branch >> == "master" ]; then
-                docker tag "${IMAGE_NAME}:ci" "${IMAGE_NAME}:latest"
-                docker push "${IMAGE_NAME}:latest"
-              fi
+            set -x
+            sudo apt-get update
+            sudo apt-get install -y git
+            if [[ << parameters.version >> = 'latest' ]]; then
+                export ANCHORE_VERSION=$(git ls-remote --tags --refs --sort="v:refname" git://github.com/anchore/anchore-engine.git | tail -n1 | sed 's/.*\///')
             else
-              docker tag "${IMAGE_NAME}:ci" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${ANCHORE_VERSION}"
-              docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${ANCHORE_VERSION}"
+                export ANCHORE_VERSION=<< parameters.version >>
             fi
-
-  get_release_tag:
-    description: Gets the latest release tag from GitHub for the specified branch
-    parameters:
-      git_branch:
-        type: string
-    steps:
-      - run:
-          name: Get anchore-engine release tag
-          command: |
-            git clone git@github.com:anchore/anchore-engine.git
-            cd anchore-engine && git checkout << parameters.git_branch >>
-            mkdir -p /home/circleci/workspace/<< parameters.git_branch >>
-            git describe --tag --abbrev=0 --exclude "*rc*" > /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt
-
-  load_image:
-    description: Load docker image from tarball
-    parameters:
-      git_branch:
-        type: string
-    steps:
-      - run:
-          name: Load Docker image
-          command: docker load -i "/home/circleci/workspace/<< parameters.git_branch >>/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar"
+            mkdir -p /home/circleci/workspace
+            echo $ANCHORE_VERSION > /home/circleci/workspace/version.txt
+            source scripts/build.sh
+            if docker pull ${IMAGE_NAME}:${ANCHORE_VERSION} &> /dev/null; then
+                sed -i "s|postgres:9|${IMAGE_NAME}:${ANCHORE_VERSION}|g" docker-compose.yaml
+            fi
+            setup_anchore_engine $ANCHORE_VERSION
+            python scripts/feed_sync_wait.py 180 10
+            save_image $ANCHORE_VERSION
+      - persist_to_workspace:
+          root: /home/circleci/workspace/
+          paths:
+            - caches/*
+            - version.txt
 
   run_tests:
-    description: Run aetests from anchore-engine repo
-    parameters:
-      git_branch:
-        type: string
-    steps:
-      - anchore/install_tools
-      - run:
-          name: Run aetest.py
-          command: |
-            docker run -td --net=host --name anchore-cli docker.io/anchore/engine-cli:latest tail -f /dev/null
-            anchore_ci_tools --wait
-            docker exec anchore-cli anchore-cli --u admin --p foobar system status
-            git clone git@github.com:anchore/anchore-engine.git
-            cd anchore-engine && git checkout << parameters.git_branch >>
-            cd scripts/tests
-            python aetest.py docker.io/alpine:latest anchore-cli
-            python aefailtest.py docker.io/alpine:latest anchore-cli
-
-  save_image:
-    description: Save tarball of image
-    parameters:
-      git_branch:
-        type: string
-    steps:
-      - run:
-          name: Save docker image to tarball
-          command: |
-            rm -rf /home/circleci/workspace/<< parameters.git_branch >>/caches/
-            mkdir /home/circleci/workspace/<< parameters.git_branch >>/caches/ -p
-            docker save -o "/home/circleci/workspace/<< parameters.git_branch >>/caches/${CIRCLE_PROJECT_REPONAME}-ci.tar" "${IMAGE_NAME}:ci"
-
-  setup_anchore_engine:
-    description: |
-      Use docker compose to stand up anchore engine using the
-      version specified. Also appends feeds configuration for db preload.
-    parameters:
-      git_branch:
-        type: string
-    steps:
-      - run:
-          name: Setup anchore engine
-          command: |
-            export ANCHORE_VERSION=$(cat /home/circleci/workspace/<< parameters.git_branch >>/anchore-version.txt)
-            echo $ANCHORE_VERSION
-            cd .circleci
-            sed -i "s/ANCHORE_VERSION/${ANCHORE_VERSION}/" docker-compose.yaml
-            mkdir config db
-            curl -o config/config.yaml "https://raw.githubusercontent.com/anchore/anchore-engine/${ANCHORE_VERSION}/scripts/docker-compose/config.yaml"
-            cat \<< EOF \>> config/config.yaml
-
-            feeds:
-              sync_enabled: True
-              selective_sync:
-                enabled: True
-                feeds:
-                  packages: False
-                  vulnerabilities: True
-                  nvd: True
-            EOF
-            docker-compose up -d
-            docker logs anchore-engine
-jobs:
-  v2_build:
     machine: true
-    working_directory: /home/circleci/build
     steps:
       - checkout
+      - <<: *attach_workspace
       - <<: *install_dependencies
-      - get_release_tag:
-          git_branch: "0.2"
-      - setup_anchore_engine:
-          git_branch: "0.2"
-      - build_image
-      - save_image:
-          git_branch: "0.2"
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - 0.2/*
-
-  v2_tests:
-    machine: true
-    working_directory: /home/circleci/build
-    steps:
-      - checkout
-      - <<: *attach_workspace
-      - load_image:
-          git_branch: "0.2"
       - run:
-          name: Setup docker-compose to use newly built image
+          name: Run built image with docker-compose & aetest.py
           command: |
-            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" /home/circleci/build/.circleci/docker-compose.yaml
-      - setup_anchore_engine:
-          git_branch: "0.2"
-      - run_tests:
-          git_branch: "0.2"
+            set -x
+            sudo apt-get update
+            sudo apt-get install -y git
+            export ANCHORE_VERSION=$(cat /home/circleci/workspace/version.txt)
+            source scripts/build.sh
+            load_image $ANCHORE_VERSION
+            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" docker-compose.yaml
+            setup_anchore_engine $ANCHORE_VERSION
+            run_tests $ANCHORE_VERSION
 
-  v2_push:
-    docker:
-      - image: docker:stable
-    steps:
-      - setup_remote_docker
-      - <<: *attach_workspace
-      - load_image:
-          git_branch: "0.2"
-      - dockerhub_push:
-          git_branch: "0.2"
-
-  v3_build:
+  push_dockerhub:
     machine: true
-    working_directory: /home/circleci/build
-    steps:
-      - checkout
-      - <<: *install_dependencies
-      - get_release_tag:
-          git_branch: "0.3"
-      - setup_anchore_engine:
-          git_branch: "0.3"
-      - build_image
-      - save_image:
-          git_branch: "0.3"
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - 0.3/*
-
-  v3_tests:
-    machine: true
-    working_directory: /home/circleci/build
     steps:
       - checkout
       - <<: *attach_workspace
-      - load_image:
-          git_branch: "0.3"
       - run:
-          name: Setup docker-compose to use newly built image
+          name: Push dockerhub
           command: |
-            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" /home/circleci/build/.circleci/docker-compose.yaml
-      - setup_anchore_engine:
-          git_branch: "0.3"
-      - run_tests:
-          git_branch: "0.3"
-
-  v3_push:
-    docker:
-      - image: docker:stable
-    steps:
-      - setup_remote_docker
-      - <<: *attach_workspace
-      - load_image:
-          git_branch: "0.3"
-      - dockerhub_push:
-          git_branch: "0.3"
-
-  master_build:
-    machine: true
-    working_directory: /home/circleci/build
-    steps:
-      - checkout
-      - <<: *install_dependencies
-      - get_release_tag:
-          git_branch: "master"
-      - setup_anchore_engine:
-          git_branch: "master"
-      - build_image
-      - save_image:
-          git_branch: "master"
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - master/*
-
-  master_tests:
-    machine: true
-    working_directory: /home/circleci/build
-    steps:
-      - checkout
-      - <<: *attach_workspace
-      - load_image:
-          git_branch: "master"
-      - run:
-          name: Setup docker-compose to use newly built image
-          command: |
-            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" /home/circleci/build/.circleci/docker-compose.yaml
-      - setup_anchore_engine:
-          git_branch: "master"
-      - run_tests:
-          git_branch: "master"
-
-  master_push:
-    docker:
-      - image: docker:stable
-    steps:
-      - setup_remote_docker
-      - <<: *attach_workspace
-      - load_image:
-          git_branch: "master"
-      - dockerhub_push:
-          git_branch: "master"
+            set -x
+            sudo apt-get update
+            sudo apt-get install -y git
+            export ANCHORE_VERSION=$(cat /home/circleci/workspace/version.txt)
+            source scripts/build.sh
+            load_image $ANCHORE_VERSION
+            push_dockerhub $ANCHORE_VERSION
 
 workflows:
   default_workflow:
     jobs:
-      - v2_build
-      - v2_tests:
+      - build_image:
+          name: build_latest
+      - run_tests:
+          name: tests_latest
           requires:
-            - v2_build
-      - v2_push:
+            - build_latest
+      - push_dockerhub:
+          name: push_latest
           requires:
-            - v2_tests
-      - v3_build
-      - v3_tests:
-          requires:
-            - v3_build
-      - v3_push:
-          requires:
-            - v3_tests
-      - master_build
-      - master_tests:
-          requires:
-            - master_build
-      - master_push:
-          requires:
-            - master_tests
+            - tests_latest
   
   nightly_build:
     triggers:
@@ -325,24 +114,38 @@ workflows:
               only:
                 - master
     jobs:
-      - v2_build
-      - v2_tests:
+      - build_image:
+          name: build_v0.3.3
+          version: v0.3.3
+      - run_tests:
+          name: tests_v0.3.3
           requires:
-            - v2_build
-      - v2_push:
+            - build_v0.3.3
+      - push_dockerhub:
+          name: push_v0.3.3
           requires:
-            - v2_tests
-      - v3_build
-      - v3_tests:
+            - tests_v0.3.3
+      
+      - build_image:
+          name: build_v0.3.4
+          version: v0.3.4
+      - run_tests:
+          name: tests_v0.3.4
           requires:
-            - v3_build
-      - v3_push:
+            - build_v0.3.4
+      - push_dockerhub:
+          name: push_v0.3.4
           requires:
-            - v3_tests
-      - master_build
-      - master_tests:
+            - tests_v0.3.4
+      
+      - build_image:
+          name: build_v0.4.0
+          version: v0.4.0
+      - run_tests:
+          name: tests_v0.4.0
           requires:
-            - master_build
-      - master_push:
+            - build_v0.4.0
+      - push_dockerhub:
+          name: push_v0.4.0
           requires:
-            - master_tests
+            - tests_v0.4.0
