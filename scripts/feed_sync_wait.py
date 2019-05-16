@@ -1,10 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import json
 import requests
 import time
 import sys
 import subprocess
+from datetime import datetime, timedelta
 
 def discover_anchore_ids():
     # first, get the container ID of the anchore-db postgres container
@@ -69,7 +70,8 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
                 all_synced = True
                 for sync_record in data:
                     last_sync_time = sync_record.get('last_full_sync', None)
-                    if not last_sync_time:
+                    last_sync_datetime=datetime.strptime(last_sync_time.replace('T',''), '%Y-%m-%d%H:%M:%S.%f')
+                    if not last_sync_time or (datetime.utcnow() - last_sync_datetime) > timedelta(hours=12):
                         all_synced = False
                         break
 
@@ -86,9 +88,14 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
                     unsynced_names = []
                     for sync_record in data:
                         for group in sync_record.get('groups', []):
-                            if group.get('last_sync', None):
-                                synced = synced+1
-                                synced_names.append(group.get('name', ""))
+                            last_sync = group.get('last_sync', None)
+                            if last_sync:
+                                last_sync_datetime = datetime.strptime(last_sync.replace('T',''), '%Y-%m-%d%H:%M:%S.%f')
+                                if (datetime.utcnow() - last_sync_datetime) < timedelta(hours=12):
+                                    synced = synced+1
+                                    synced_names.append(group.get('name', ""))
+                                else:
+                                    unsynced_names.append(group.get('name', ""))
                             else:
                                 unsynced_names.append(group.get('name', ""))
                             total = total+1

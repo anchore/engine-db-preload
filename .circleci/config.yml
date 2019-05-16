@@ -48,7 +48,7 @@ jobs:
                 sed -i "s|postgres:9|${IMAGE_NAME}:${ANCHORE_VERSION}|g" docker-compose.yaml
             fi
             setup_anchore_engine $ANCHORE_VERSION
-            python scripts/feed_sync_wait.py 180 10
+            python scripts/feed_sync_wait.py 240 30
             save_image $ANCHORE_VERSION
       - persist_to_workspace:
           root: /home/circleci/workspace/
@@ -71,7 +71,7 @@ jobs:
             export ANCHORE_VERSION=$(cat /home/circleci/workspace/version.txt)
             source scripts/build.sh
             load_image $ANCHORE_VERSION
-            sed -i "s|postgres:9|${IMAGE_NAME}:ci|g" docker-compose.yaml
+            sed -i "s|postgres:9|${IMAGE_NAME}:dev|g" docker-compose.yaml
             setup_anchore_engine $ANCHORE_VERSION
             run_tests $ANCHORE_VERSION
 
