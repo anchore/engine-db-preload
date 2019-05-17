@@ -1,11 +1,22 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+import shlex
 import json
 import requests
 import time
 import sys
 import subprocess
 from datetime import datetime, timedelta
+
+def execute(cmd):
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line 
+    popen.stdout.close()
+    return_code = popen.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
 
 def discover_anchore_ids():
     # first, get the container ID of the anchore-db postgres container
@@ -16,7 +27,7 @@ def discover_anchore_ids():
 
         cmd = "docker-compose ps -q anchore-engine"
         engine_id = subprocess.check_output(cmd.split()).strip()
-    except Exception as err:
+    except Exception:
         raise Exception("command failed getting container ID: {}".format(cmd))
 
     if not engine_id or not db_id:
@@ -24,83 +35,44 @@ def discover_anchore_ids():
 
     return(engine_id, db_id)
 
-def verify_anchore_engine_available(user='admin', pw='foobar', timeout=300, health_url="http://localhost:8228/health", test_url="http://localhost:8228/v1/system/feeds"):
-    done = False
-    start_ts = time.time()
-    while not done:
-        try:
-            r = requests.get(health_url, verify=False, timeout=10)
-            if r.status_code == 200:
-                done = True
-            else:
-                print ("engine not up yet - response httpcode={} data={}".format(r.status_code, r.text))
-        except Exception as err:
-            print ("engine not up yet - exception: {}".format(err))
-        time.sleep(0.5)
-        if time.time() - start_ts >= timeout:
-            raise Exception("timed out after {} seconds".format(timeout))
-
-    done=False
-    while not done:
-        try:
-            r = requests.get(test_url, auth=(user, pw), verify=False, timeout=10)
-            if r.status_code == 200:
-                done = True
-            else:
-                print ("engine not up yet - response httpcode={} data={}".format(r.status_code, r.text))
-        except Exception as err:
-            print ("engine not up yet - exception: {}".format(err))
-        time.sleep(0.5)
-        if time.time() - start_ts >= timeout:
-            raise Exception("timed out after {} seconds".format(timeout))
+def verify_anchore_engine_available(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
+    cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready ""'.format(user, pw, url, timeout)
+    try:
+        for line in execute(shlex.split(cmd)):
+            print(line, end="")
+    except Exception as err:
+        print("failed to execute cmd: {}. Error - {}".format(cmd, err))
 
     return(True)
 
-def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/feeds", timer=1.0):
+def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://localhost:8228/v1/system/feeds?sync=true"):
+    cmd = 'curl -u {}:{} -X POST {}'.format(user, pw, feed_sync_url).split()
+    popen = subprocess.Popen(cmd)
     start_ts = time.time()
-    good_count_retries = 5
-    done = False
-    good_count = 0
-    while not done:
-        print ("\nattempt {} / {}".format(int(time.time() - start_ts), timeout))
+    while popen.poll() == None:
         try:
-            r = requests.get(feeds_url, auth=('admin', 'foobar'), verify=False, timeout=20)
+            r = requests.get(feed_sync_url, auth=('admin', 'foobar'), verify=False, timeout=20)
             if r.status_code == 200:
                 data = json.loads(r.text)
-                all_synced = True
+                synced = 0
+                total = 0
+                synced_names = []
+                unsynced_names = []
                 for sync_record in data:
-                    last_sync_time = sync_record.get('last_full_sync', None)
-                    last_sync_datetime=datetime.strptime(last_sync_time.replace('T',''), '%Y-%m-%d%H:%M:%S.%f')
-                    if not last_sync_time or (datetime.utcnow() - last_sync_datetime) > timedelta(hours=12):
-                        all_synced = False
-                        break
-
-                if all_synced:
-                    print ("detected all synced - ensuring by retrying {} / {}".format(good_count, good_count_retries))
-                    good_count = good_count + 1
-                    if good_count > good_count_retries:
-                        print ("got last full sync time, for all feeds - ready to go!: {}".format(last_sync_time))
-                        done=True
-                else:
-                    synced = 0
-                    total = 0
-                    synced_names = []
-                    unsynced_names = []
-                    for sync_record in data:
-                        for group in sync_record.get('groups', []):
-                            last_sync = group.get('last_sync', None)
-                            if last_sync:
-                                last_sync_datetime = datetime.strptime(last_sync.replace('T',''), '%Y-%m-%d%H:%M:%S.%f')
-                                if (datetime.utcnow() - last_sync_datetime) < timedelta(hours=12):
-                                    synced = synced+1
-                                    synced_names.append(group.get('name', ""))
-                                else:
-                                    unsynced_names.append(group.get('name', ""))
+                    for group in sync_record.get('groups', []):
+                        last_sync = group.get('last_sync', None)
+                        if last_sync:
+                            last_sync_datetime = datetime.strptime(last_sync.replace('T',''), '%Y-%m-%d%H:%M:%S.%f')
+                            if (datetime.utcnow() - last_sync_datetime) < timedelta(hours=12):
+                                synced = synced+1
+                                synced_names.append(group.get('name', ""))
                             else:
                                 unsynced_names.append(group.get('name', ""))
-                            total = total+1
-                    print ("not done yet {} / {} groups completed".format(synced, total))
-                    print ("\tsynced: {}\n\tunsynced: {}".format(synced_names, unsynced_names))
+                        else:
+                            unsynced_names.append(group.get('name', ""))
+                        total = total+1
+                print ("{} / {} groups completed".format(synced, total))
+                print ("\tsynced: {}\n\tunsynced: {}".format(synced_names, unsynced_names))
             else:
                 print ("got bad response, trying again httpcode={} data={}".format(r.status_code, r.text))
 
@@ -110,7 +82,19 @@ def wait_for_feed_sync(timeout=300, feeds_url="http://localhost:8228/v1/system/f
         time.sleep(timer)
         if time.time() - start_ts > timeout:
             raise Exception("timed out waiting for feeds to sync after {} seconds".format(timeout))
+    
+    if popen.returncode == 0:
+        return True
+    else:
+        raise Exception("Feed sync initialization failed.")
 
+def wait_for_feed_sync(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
+    cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities,nvd'.format(user, pw, url, timeout)
+    try:
+        for line in execute(cmd.split()):
+            print(line, end="")
+    except Exception as err:
+        print("failed to execute cmd: {}. Error - {}".format(cmd, err))
     return(True)
 
 #### MAIN PROGRAM STARTS HERE ####
@@ -147,16 +131,21 @@ print ("got container IDs: engine={} db={}".format(engine_id, db_id))
 
 # next, ensure that anchore-engine is fully up and responsive, ready to handle feed sync list API call
 try:
-    rc = verify_anchore_engine_available(timeout=300)
+    rc = verify_anchore_engine_available(timeout=600)
 except Exception as err:
     print ("anchore-engine is not running or available - exception: {}".format(err))
     sys.exit(1)
 print ("verified that anchore-engine is up and ready")
 
+try:
+    rc = sync_feeds(timeout=minutes*60)
+except Exception as err:
+    print ("could not verify feed sync has completed - exception: {}".format(err))
+    sys.exit(1)
 
 # enter loop that exits if too much time has passed, or initial feed sync has completed
 try:
-    rc = wait_for_feed_sync(timeout=minutes*60, timer=timer)
+    rc = wait_for_feed_sync(timeout=600)
 except Exception as err:
     print ("could not verify feed sync has completed - exception: {}".format(err))
     sys.exit(1)

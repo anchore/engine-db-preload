@@ -31,7 +31,7 @@ jobs:
       - checkout
       - <<: *install_dependencies
       - run:
-          name: setup_anchore_engine
+          name: Setup Anchore Engine, Sync Feeds & Build Image
           command: |
             set -x
             sudo apt-get update

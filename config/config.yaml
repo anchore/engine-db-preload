@@ -12,7 +12,7 @@ internal_ssl_verify: False
 auto_restart_services: True
 
 feeds:
-  sync_enabled: True
+  sync_enabled: False
   ssl_verify: True
   selective_sync:
     enabled: True
