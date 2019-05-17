@@ -21,11 +21,7 @@
 # Start circleci configuration
 version: 2.1
 jobs:
-  build_image:
-    parameters:
-      version:
-        type: string
-        default: latest
+  build_images:
     machine: true
     steps:
       - checkout
@@ -34,27 +30,25 @@ jobs:
           name: Setup Anchore Engine, Sync Feeds & Build Image
           command: |
             set -x
-            sudo apt-get update
-            sudo apt-get install -y git
-            if [[ << parameters.version >> = 'latest' ]]; then
-                export ANCHORE_VERSION=$(git ls-remote --tags --refs --sort="v:refname" git://github.com/anchore/anchore-engine.git | tail -n1 | sed 's/.*\///')
-            else
-                export ANCHORE_VERSION=<< parameters.version >>
-            fi
             mkdir -p /home/circleci/workspace
-            echo $ANCHORE_VERSION > /home/circleci/workspace/version.txt
+            cp docker-compose.yaml /home/circleci/workspace/docker-compose.yaml
             source scripts/build.sh
-            if docker pull ${IMAGE_NAME}:${ANCHORE_VERSION} &> /dev/null; then
-                sed -i "s|postgres:9|${IMAGE_NAME}:${ANCHORE_VERSION}|g" docker-compose.yaml
-            fi
-            setup_anchore_engine $ANCHORE_VERSION
-            python scripts/feed_sync_wait.py 240 30
-            save_image $ANCHORE_VERSION
+            for version in $(cat .circleci/build_versions.txt); do
+                cp -f /home/circleci/workspace/docker-compose.yaml docker-compose.yaml
+                if docker pull ${IMAGE_NAME}:${version} &> /dev/null; then
+                    sed -i "s|postgres:9|${IMAGE_NAME}:${version}|g" docker-compose.yaml
+                fi
+                setup_anchore_engine $version
+                scripts/feed_sync_wait.py 240 30
+                sudo rm -rf db
+                docker tag ${IMAGE_NAME}:dev ${IMAGE_NAME}:dev-${version}
+                save_image $version
+            done
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
             - caches/*
-            - version.txt
+            - docker-compose.yaml
 
   run_tests:
     machine: true
@@ -66,14 +60,15 @@ jobs:
           name: Run built image with docker-compose & aetest.py
           command: |
             set -x
-            sudo apt-get update
-            sudo apt-get install -y git
-            export ANCHORE_VERSION=$(cat /home/circleci/workspace/version.txt)
             source scripts/build.sh
-            load_image $ANCHORE_VERSION
-            sed -i "s|postgres:9|${IMAGE_NAME}:dev|g" docker-compose.yaml
-            setup_anchore_engine $ANCHORE_VERSION
-            run_tests $ANCHORE_VERSION
+            for version in $(cat .circleci/build_versions.txt); do
+                cp -f /home/circleci/workspace/docker-compose.yaml docker-compose.yaml
+                load_image $version
+                sed -i "s|postgres:9|${IMAGE_NAME}:dev-${version}|g" docker-compose.yaml
+                setup_anchore_engine $version
+                run_tests $version
+                sudo rm -rf db
+            done
 
   push_dockerhub:
     machine: true
@@ -86,24 +81,22 @@ jobs:
             set -x
             sudo apt-get update
             sudo apt-get install -y git
-            export ANCHORE_VERSION=$(cat /home/circleci/workspace/version.txt)
             source scripts/build.sh
-            load_image $ANCHORE_VERSION
-            push_dockerhub $ANCHORE_VERSION
+            for version in $(cat .circleci/build_versions.txt); do
+                load_image $version
+                push_dockerhub $version
+            done
 
 workflows:
   default_workflow:
     jobs:
-      - build_image:
-          name: build_latest
+      - build_images
       - run_tests:
-          name: tests_latest
           requires:
-            - build_latest
+            - build_images
       - push_dockerhub:
-          name: push_latest
           requires:
-            - tests_latest
+            - run_tests
   
   nightly_build:
     triggers:
@@ -114,38 +107,10 @@ workflows:
               only:
                 - master
     jobs:
-      - build_image:
-          name: build_v0.3.3
-          version: v0.3.3
+      - build_images
       - run_tests:
-          name: tests_v0.3.3
           requires:
-            - build_v0.3.3
+            - build_images
       - push_dockerhub:
-          name: push_v0.3.3
           requires:
-            - tests_v0.3.3
-      
-      - build_image:
-          name: build_v0.3.4
-          version: v0.3.4
-      - run_tests:
-          name: tests_v0.3.4
-          requires:
-            - build_v0.3.4
-      - push_dockerhub:
-          name: push_v0.3.4
-          requires:
-            - tests_v0.3.4
-      
-      - build_image:
-          name: build_v0.4.0
-          version: v0.4.0
-      - run_tests:
-          name: tests_v0.4.0
-          requires:
-            - build_v0.4.0
-      - push_dockerhub:
-          name: push_v0.4.0
-          requires:
-            - tests_v0.4.0
+            - run_tests

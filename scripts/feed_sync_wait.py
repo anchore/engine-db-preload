@@ -49,7 +49,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
     cmd = 'curl -u {}:{} -X POST {}'.format(user, pw, feed_sync_url).split()
     popen = subprocess.Popen(cmd)
     start_ts = time.time()
-    while popen.poll() == None:
+    while not popen.poll():
         try:
             r = requests.get(feed_sync_url, auth=('admin', 'foobar'), verify=False, timeout=20)
             if r.status_code == 200:
@@ -79,14 +79,15 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
         except Exception as err:
             raise Exception("cannot contact engine yet for system feeds list status - exception: {}".format(err))
 
+        if not popen.returncode == None:
+            if popen.returncode == 0:
+                return True
+            else:
+                raise Exception("Feed sync initialization failed.")
+
         time.sleep(timer)
         if time.time() - start_ts > timeout:
             raise Exception("timed out waiting for feeds to sync after {} seconds".format(timeout))
-    
-    if popen.returncode == 0:
-        return True
-    else:
-        raise Exception("Feed sync initialization failed.")
 
 def wait_for_feed_sync(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
     cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities,nvd'.format(user, pw, url, timeout)
@@ -156,7 +157,7 @@ exclude_opts = ' '.join(['--exclude-table-data={}'.format(x) for x in ['anchore'
 final_prepop_container_image = "anchore/engine-db-preload:dev"
 cmds = [
     'docker-compose stop anchore-engine'.split(),
-    "docker-compose exec anchore-db /bin/bash -c".split() + ['pg_dump -U postgres -Z 9 {} > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'.format(exclude_opts)],
+    "docker-compose exec -T anchore-db /bin/bash -c".split() + ['pg_dump -U postgres -Z 9 {} > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'.format(exclude_opts)],
     'docker-compose stop'.split(),
     "docker commit {} {}".format(db_id, final_prepop_container_image).split(),
     'docker-compose down --volumes'.split(),
@@ -165,9 +166,9 @@ for cmd in cmds:
     try:
         print ("CMD: {}".format(cmd))
         sout = subprocess.check_output(cmd)
-        print ("\tOUTPUT: {}".format(sout))
+        print ("OUTPUT: {}".format(sout))
     except Exception as err:
-        print ("CMD failed: {}".format(cmd))
+        print ("CMD failed: {} - with error: {}".format(cmd, err))
         print ("bailing out")
         sys.exit(1)
 
