@@ -3,10 +3,18 @@
 setup_anchore_engine() {
     local anchore_version=$1
     sed -i "s/ANCHORE_VERSION/${anchore_version}/g" docker-compose.yaml
-    ssh remote-docker 'mkdir -p /tmp/db /tmp/config'
-    scp config/config.yaml remote-docker:/tmp/config/config.yaml
+    ssh remote-docker 'mkdir -p ${HOME}/anchore/db ${HOME}/anchore/config'
+    scp config/config.yaml remote-docker:"\${HOME}/anchore/config/config.yaml"
     docker-compose up -d
-    docker logs anchore-engine
+    # Forward remote-docker:8228 to localhost:8228
+    ssh -MS anchore -fN4 -L 8228:localhost:8228 remote-docker
+}
+
+stop_anchore_engine() {
+    docker-compose down --volumes
+    # Kill forwarded socket
+    ssh -S anchore -O exit remote-docker
+    ssh remote-docker 'sudo rm -rf ${HOME}/anchore'
 }
 
 run_tests() {

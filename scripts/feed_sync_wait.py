@@ -90,7 +90,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
             raise Exception("timed out waiting for feeds to sync after {} seconds".format(timeout))
 
 def wait_for_feed_sync(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
-    cmd = 'anchore-cli --debug --json --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities,nvd'.format(user, pw, url, timeout)
+    cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities,nvd'.format(user, pw, url, timeout)
     try:
         for line in execute(cmd.split()):
             print(line, end="")
@@ -159,7 +159,7 @@ cmds = [
     'docker-compose stop anchore-engine'.split(),
     "docker-compose exec -T anchore-db /bin/bash -c".split() + ['pg_dump -U postgres -Z 9 {} > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'.format(exclude_opts)],
     'docker-compose stop'.split(),
-    "docker commit {} {}".format(db_id, final_prepop_container_image).split(),
+    "docker commit anchore-db {}".format(final_prepop_container_image).split(),
     'docker-compose down --volumes'.split(),
 ]
 for cmd in cmds:

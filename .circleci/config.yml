@@ -41,12 +41,8 @@ jobs:
                     sed -i "s|postgres:9|${IMAGE_NAME}:${version}|g" docker-compose.yaml
                 fi
                 setup_anchore_engine $version
-                # Forward remote-docker:8228 to localhost:8228
-                ssh -MS anchore-engine -fN4 -L 8228:localhost:8228 remote-docker
-                scripts/feed_sync_wait.py 240 30
-                # Kill forwarded socket
-                ssh -S anchore-engine -O exit remote-docker
-                sudo rm -rf db
+                scripts/feed_sync_wait.py 240 10
+                stop_anchore_engine
                 docker tag ${IMAGE_NAME}:dev ${IMAGE_NAME}:dev-${version}
                 save_image $version
             done
@@ -70,16 +66,12 @@ jobs:
             set -x
             source scripts/build.sh
             for version in $(cat .circleci/build_versions.txt); do
-                cp -f /home/circleci/workspace/docker-compose.yaml docker-compose.yaml
                 load_image $version
+                cp -f /home/circleci/workspace/docker-compose.yaml docker-compose.yaml
                 sed -i "s|postgres:9|${IMAGE_NAME}:dev-${version}|g" docker-compose.yaml
                 setup_anchore_engine $version
-                # Forward remote-docker:8228 to localhost:8228
-                ssh -MS anchore-engine -fN4 -L 8228:localhost:8228 remote-docker
                 run_tests $version
-                # Kill forwarded socket
-                ssh -S anchore-engine -O exit remote-docker
-                sudo rm -rf db
+                stop_anchore_engine
             done
 
   push_dockerhub:
