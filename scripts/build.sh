@@ -3,7 +3,8 @@
 setup_anchore_engine() {
     local anchore_version=$1
     sed -i "s/ANCHORE_VERSION/${anchore_version}/g" docker-compose.yaml
-    mkdir db
+    ssh remote-docker 'mkdir -p /tmp/db /tmp/config'
+    scp config/config.yaml remote-docker:/tmp/config/config.yaml
     docker-compose up -d
     docker logs anchore-engine
 }

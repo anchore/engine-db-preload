@@ -9,7 +9,7 @@ services:
     ports:
      - "8228:8228"
     volumes:
-     - ./config:/config/:z
+     - /tmp/config:/config/:z
     environment:
      - ANCHORE_HOST_ID=anchore-engine
     logging:
@@ -20,7 +20,7 @@ services:
     image: "postgres:9"
     container_name: anchore-db
     volumes:
-     - ./db:/var/lib/postgresql/data/pgdata/:z
+     - /tmp/db:/var/lib/postgresql/data/pgdata/:z
     environment:
       - POSTGRES_PASSWORD=mysecretpassword
       - PGDATA=/var/lib/postgresql/data/pgdata/

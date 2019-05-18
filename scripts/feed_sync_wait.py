@@ -36,7 +36,7 @@ def discover_anchore_ids():
     return(engine_id, db_id)
 
 def verify_anchore_engine_available(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
-    cmd = 'anchore-cli --debug --json --u {} --p {} --url {} system wait --timeout {} --feedsready ""'.format(user, pw, url, timeout)
+    cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready ""'.format(user, pw, url, timeout)
     try:
         for line in execute(shlex.split(cmd)):
             print(line, end="")
