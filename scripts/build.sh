@@ -2,7 +2,7 @@
 
 setup_anchore_engine() {
     local anchore_version=$1
-    sed -i "s/ANCHORE_VERSION/${anchore_version}/" docker-compose.yaml
+    sed -i "s/ANCHORE_VERSION/${anchore_version}/g" docker-compose.yaml
     mkdir db
     docker-compose up -d
     docker logs anchore-engine
@@ -10,17 +10,13 @@ setup_anchore_engine() {
 
 run_tests() {
     local anchore_version=$1
-    docker run -td --net=host --name anchore-cli docker.io/anchore/engine-cli:latest tail -f /dev/null
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities,nvd"
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system status
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system feeds list
     git clone git@github.com:anchore/anchore-engine.git
-    pushd anchore-engine
-    git checkout tags/${anchore_version}
-    pushd scripts/tests
+    pushd anchore-engine/scripts/tests
     python aetest.py docker.io/alpine:latest anchore-cli
     python aefailtest.py docker.io/alpine:latest anchore-cli
-    popd
     popd
 }
 

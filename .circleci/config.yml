@@ -14,16 +14,18 @@
   run:
     name: install dependencies
     command: |
-      pip install --upgrade pip
-      pip install --upgrade docker-compose
-      pip install --upgrade anchorecli
+      sudo pip install --upgrade pip
+      sudo pip install --upgrade docker-compose
+      sudo pip install --upgrade anchorecli
 
 # Start circleci configuration
 version: 2.1
 jobs:
   build_images:
-    machine: true
+    docker:
+      - image: circleci/python:3.6
     steps:
+      - setup_remote_docker
       - checkout
       - <<: *install_dependencies
       - run:
@@ -39,7 +41,11 @@ jobs:
                     sed -i "s|postgres:9|${IMAGE_NAME}:${version}|g" docker-compose.yaml
                 fi
                 setup_anchore_engine $version
+                # Forward remote-docker:8228 to localhost:8228
+                ssh -MS anchore-engine -fN4 -L 8228:localhost:8228 remote-docker
                 scripts/feed_sync_wait.py 240 30
+                # Kill forwarded socket
+                ssh -S anchore-engine -O exit remote-docker
                 sudo rm -rf db
                 docker tag ${IMAGE_NAME}:dev ${IMAGE_NAME}:dev-${version}
                 save_image $version
@@ -51,8 +57,10 @@ jobs:
             - docker-compose.yaml
 
   run_tests:
-    machine: true
+    docker:
+      - image: circleci/python:3.6
     steps:
+      - setup_remote_docker
       - checkout
       - <<: *attach_workspace
       - <<: *install_dependencies
@@ -66,21 +74,25 @@ jobs:
                 load_image $version
                 sed -i "s|postgres:9|${IMAGE_NAME}:dev-${version}|g" docker-compose.yaml
                 setup_anchore_engine $version
+                # Forward remote-docker:8228 to localhost:8228
+                ssh -MS anchore-engine -fN4 -L 8228:localhost:8228 remote-docker
                 run_tests $version
+                # Kill forwarded socket
+                ssh -S anchore-engine -O exit remote-docker
                 sudo rm -rf db
             done
 
   push_dockerhub:
-    machine: true
+    docker:
+      - image: circleci/python:3.6
     steps:
+      - setup_remote_docker
       - checkout
       - <<: *attach_workspace
       - run:
           name: Push dockerhub
           command: |
             set -x
-            sudo apt-get update
-            sudo apt-get install -y git
             source scripts/build.sh
             for version in $(cat .circleci/build_versions.txt); do
                 load_image $version
