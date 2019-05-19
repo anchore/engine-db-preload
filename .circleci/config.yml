@@ -20,11 +20,11 @@ jobs:
       - setup_remote_docker
       - checkout
       - run:
-          name: setup build environment
-          command: scripts/build.sh setup_build_environment
+          name: Setup Build Environment
+          command: ./build.sh setup_build_environment
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_and_save_image
+          command: ./build.sh build_and_save_image
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -40,10 +40,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Install Dependencies
-          command: scripts/build.sh install_dependencies
+          command: ./build.sh install_dependencies
       - run:
-          name: Run built image with docker-compose & aetest.py
-          command: scripts/build.sh compose_up_and_test
+          name: Docker Compose & Run Tests
+          command: build.sh compose_up_and_test
 
   push_dockerhub:
     docker:
@@ -53,8 +53,8 @@ jobs:
       - checkout
       - <<: *attach_workspace
       - run:
-          name: Push dockerhub
-          command: scripts/build.sh push_all_versions
+          name: Push to DockerHub
+          command: ./build.sh push_all_versions
 
 workflows:
   default_workflow:

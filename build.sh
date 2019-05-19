@@ -26,37 +26,45 @@ cleanup() {
 trap 'cleanup' EXIT SIGINT SIGTERM ERR
 
 install_dependencies() {
-    virtualenv .venv
-    source .venv/bin/activate
-    pip install --upgrade pip
-    pip install --upgrade docker-compose
-    pip install --upgrade anchorecli
+    if "$CIRCLECI_BUILD"; then
+        sudo pip install --upgrade pip
+        sudo pip install --upgrade docker-compose
+        sudo pip install --upgrade anchorecli
+    else
+        virtualenv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        pip install --upgrade docker-compose
+        pip install --upgrade anchorecli
+    fi
 }
 
 setup_anchore_engine() {
     local anchore_version=$1
     sed -i "s/ANCHORE_VERSION/${anchore_version}/g" docker-compose.yaml
-    if "$CIRCLECI_BUILD";then
-        ssh remote-docker 'mkdir -p ${HOME}/workspace/db ${HOME}/workspace/config'
-        scp config/config.yaml remote-docker:"\${HOME}/workspace/config/config.yaml"
+    if "$CIRCLECI_BUILD"; then
+        ssh remote-docker 'mkdir -p ${HOME}/workspace/aevolume/db ${HOME}/workspace/aevolume/config'
+        scp config/config.yaml remote-docker:"\${HOME}/workspace/aevolume/config/config.yaml"
     else
-        mkdir -p ${HOME}/workspace/db ${HOME}/workspace/config
-        cp config/config.yaml ${HOME}/workspace/config/config.yaml
+        mkdir -p ${HOME}/workspace/aevolume/db ${HOME}/workspace/aevolume/config
+        cp config/config.yaml ${HOME}/workspace/aevolume/config/config.yaml
     fi
     docker-compose up -d
 
     # If job is running in circleci forward remote-docker:8228 to localhost:8228
-    if "$CIRCLECI_BUILD";then
+    if "$CIRCLECI_BUILD"; then
         ssh -MS anchore -fN4 -L 8228:localhost:8228 remote-docker
     fi
 }
 
 stop_anchore_engine() {
     docker-compose down --volumes
-    if "$CIRCLECI_BUILD";then
+    if "$CIRCLECI_BUILD"; then
         # Kill forwarded socket
         ssh -S anchore -O exit remote-docker
-        ssh remote-docker 'sudo rm -rf ${HOME}/workspace'
+        ssh remote-docker 'sudo rm -rf ${HOME}/workspace/aevolume'
+    else
+        rm -rf ${HOME}/workspace/aevolume
     fi
 }
 
@@ -106,13 +114,13 @@ push_dockerhub() {
 }
 
 setup_build_environment() {
-    mkdir -p ${HOME}/workspace
+    mkdir -p ${HOME}/workspace/aevolume
     cp docker-compose.yaml ${HOME}/workspace/docker-compose.yaml
     install_dependencies
 }
 
 build_and_save_image() {
-    for version in $(cat .circleci/build_versions.txt); do
+    for version in $(cat versions.txt); do
         cp -f ${HOME}/workspace/docker-compose.yaml docker-compose.yaml
         if docker pull ${IMAGE_NAME}:${version} &> /dev/null; then
             sed -i "s|postgres:9|${IMAGE_NAME}:${version}|g" docker-compose.yaml
@@ -126,7 +134,7 @@ build_and_save_image() {
 }
 
 compose_up_and_test() {
-    for version in $(cat .circleci/build_versions.txt); do
+    for version in $(cat versions.txt); do
         load_image $version
         cp -f ${HOME}/workspace/docker-compose.yaml docker-compose.yaml
         sed -i "s|postgres:9|${IMAGE_NAME}:dev-${version}|g" docker-compose.yaml
@@ -137,7 +145,7 @@ compose_up_and_test() {
 }
 
 push_all_versions() {
-    for version in $(cat .circleci/build_versions.txt); do
+    for version in $(cat versions.txt); do
         load_image $version
         push_dockerhub $version
     done
