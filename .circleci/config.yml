@@ -10,14 +10,6 @@
   attach_workspace:
       at: /home/circleci/workspace/
 
-.install_dependencies: &install_dependencies
-  run:
-    name: install dependencies
-    command: |
-      sudo pip install --upgrade pip
-      sudo pip install --upgrade docker-compose
-      sudo pip install --upgrade anchorecli
-
 # Start circleci configuration
 version: 2.1
 jobs:
@@ -27,25 +19,12 @@ jobs:
     steps:
       - setup_remote_docker
       - checkout
-      - <<: *install_dependencies
+      - run:
+          name: setup build environment
+          command: scripts/build.sh setup_build_environment
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: |
-            set -x
-            mkdir -p /home/circleci/workspace
-            cp docker-compose.yaml /home/circleci/workspace/docker-compose.yaml
-            source scripts/build.sh
-            for version in $(cat .circleci/build_versions.txt); do
-                cp -f /home/circleci/workspace/docker-compose.yaml docker-compose.yaml
-                if docker pull ${IMAGE_NAME}:${version} &> /dev/null; then
-                    sed -i "s|postgres:9|${IMAGE_NAME}:${version}|g" docker-compose.yaml
-                fi
-                setup_anchore_engine $version
-                scripts/feed_sync_wait.py 240 10
-                stop_anchore_engine
-                docker tag ${IMAGE_NAME}:dev ${IMAGE_NAME}:dev-${version}
-                save_image $version
-            done
+          command: scripts/build.sh build_and_save_image
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -59,20 +38,12 @@ jobs:
       - setup_remote_docker
       - checkout
       - <<: *attach_workspace
-      - <<: *install_dependencies
+      - run:
+          name: Install Dependencies
+          command: scripts/build.sh install_dependencies
       - run:
           name: Run built image with docker-compose & aetest.py
-          command: |
-            set -x
-            source scripts/build.sh
-            for version in $(cat .circleci/build_versions.txt); do
-                load_image $version
-                cp -f /home/circleci/workspace/docker-compose.yaml docker-compose.yaml
-                sed -i "s|postgres:9|${IMAGE_NAME}:dev-${version}|g" docker-compose.yaml
-                setup_anchore_engine $version
-                run_tests $version
-                stop_anchore_engine
-            done
+          command: scripts/build.sh compose_up_and_test
 
   push_dockerhub:
     docker:
@@ -83,13 +54,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Push dockerhub
-          command: |
-            set -x
-            source scripts/build.sh
-            for version in $(cat .circleci/build_versions.txt); do
-                load_image $version
-                push_dockerhub $version
-            done
+          command: scripts/build.sh push_all_versions
 
 workflows:
   default_workflow:
