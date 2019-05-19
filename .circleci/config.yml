@@ -3,7 +3,7 @@
 # Check https://circleci.com/docs/2.0/configuration-reference/ for more details
 #
 # The following environment variables must be set in the circleci project UI
-# - $IMAGE_NAME -> name of image to push to dockerhub
+#   - $IMAGE_NAME = anchore/engine-db-preload
 #
 # Define YAML anchors
 .attach_workspace: &attach_workspace
@@ -99,6 +99,7 @@ workflows:
           requires:
             - build_images
       - push_dockerhub:
+          context: dockerhub
           requires:
             - run_tests
   
@@ -116,5 +117,6 @@ workflows:
           requires:
             - build_images
       - push_dockerhub:
+          context: dockerhub
           requires:
             - run_tests

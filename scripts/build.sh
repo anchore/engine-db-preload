@@ -22,7 +22,9 @@ run_tests() {
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities,nvd"
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system status
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system feeds list
-    git clone git@github.com:anchore/anchore-engine.git
+    if [[ ! -d anchore-engine ]]; then
+        git clone git@github.com:anchore/anchore-engine.git
+    fi
     pushd anchore-engine/scripts/tests
     python aetest.py docker.io/alpine:latest anchore-cli
     python aefailtest.py docker.io/alpine:latest anchore-cli
@@ -53,7 +55,7 @@ push_dockerhub() {
             docker push "${IMAGE_NAME}:latest"
         fi
     else
-        docker tag "${IMAGE_NAME}:dev" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${anchore_version}"
+        docker tag "${IMAGE_NAME}:dev-${anchore_version}" "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${anchore_version}"
         docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${anchore_version}"
     fi
 }
