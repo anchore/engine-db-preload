@@ -43,7 +43,7 @@ jobs:
           command: ./build.sh install_dependencies
       - run:
           name: Docker Compose & Run Tests
-          command: build.sh compose_up_and_test
+          command: ./build.sh compose_up_and_test
 
   push_dockerhub:
     docker:

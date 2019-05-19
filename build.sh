@@ -9,13 +9,11 @@ set -euxo pipefail
 
 cleanup() {
     ret="$?"
-    set +e
-    popd
+    set +euxo pipefail
+    popd 2> /dev/null
     if ! "$CIRCLECI_BUILD"; then
-        if [[ -d .venv ]]; then
-            deactivate
-            rm -rf .venv
-        fi
+        deactivate
+        rm -rf .venv
         cp -f ${HOME}/workspace/docker-compose.yaml docker-compose.yaml
         rm -rf ${HOME}/workspace
         docker-compose down --volumes
@@ -40,8 +38,15 @@ install_dependencies() {
 }
 
 setup_anchore_engine() {
-    local anchore_version=$1
-    sed -i "s/ANCHORE_VERSION/${anchore_version}/g" docker-compose.yaml
+    # If a parameter isn't passed, use engine-db-preload:latest & anchore-engine-dev:latest
+    if [[ "$#" -eq 0 ]]; then
+        sed -i "s#postgres:9#anchore/engine-db-preload:latest#g" docker-compose.yaml
+        sed -i "s/anchore-engine:ANCHORE_VERSION/anchore-engine-dev:latest/g" docker-compose.yaml
+    else
+        local anchore_version=$1
+        sed -i "s/ANCHORE_VERSION/${anchore_version}/g" docker-compose.yaml
+    fi
+    # If circleCI build, create files/dirs on remote-docker
     if "$CIRCLECI_BUILD"; then
         ssh remote-docker 'mkdir -p ${HOME}/workspace/aevolume/db ${HOME}/workspace/aevolume/config'
         scp config/config.yaml remote-docker:"\${HOME}/workspace/aevolume/config/config.yaml"
@@ -59,8 +64,8 @@ setup_anchore_engine() {
 
 stop_anchore_engine() {
     docker-compose down --volumes
+    # If running on circleCI kill forwarded socket to remote-docker
     if "$CIRCLECI_BUILD"; then
-        # Kill forwarded socket
         ssh -S anchore -O exit remote-docker
         ssh remote-docker 'sudo rm -rf ${HOME}/workspace/aevolume'
     else
@@ -98,12 +103,12 @@ push_dockerhub() {
     if [[ ! -z ${DOCKER_PASS+x} ]] && [[ ! -z ${DOCKER_USER+x} ]]; then
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
     fi
-    echo ${IMAGE_NAME}:${anchore_version}
-    if [ "$CIRCLE_BRANCH" == "master" ]; then
+    echo "Pushing to DockerHub - ${IMAGE_NAME}:${anchore_version}"
+    if [ "$CIRCLE_BRANCH" == "master" ] && "$CIRCLECI_BUILD"; then
         docker tag "${IMAGE_NAME}:dev-${anchore_version}" "${IMAGE_NAME}:${anchore_version}"
         docker push "${IMAGE_NAME}:${anchore_version}"
-        ANCHORE_LATEST_TAG=$(git ls-remote --tags --refs --sort="v:refname" git://github.com/anchore/anchore-engine.git | tail -n1 | sed 's/.*\///')
-        if [ ${anchore_version} == $ANCHORE_LATEST_TAG ]; then
+        local anchore_latest_tag=$(git ls-remote --tags --refs --sort="v:refname" git://github.com/anchore/anchore-engine.git | tail -n1 | sed 's/.*\///')
+        if [ "$anchore_version" == "$anchore_latest_tag" ]; then
             docker tag "${IMAGE_NAME}:dev-${anchore_version}" "${IMAGE_NAME}:latest"
             docker push "${IMAGE_NAME}:latest"
         fi
@@ -112,6 +117,10 @@ push_dockerhub() {
         docker push "anchore/private_testing:engine-db-preload-${CIRCLE_BRANCH}-${anchore_version}"
     fi
 }
+
+########################################################
+## FUNCTIONS CALLED BY CIRCLECI START HERE ##
+########################################################
 
 setup_build_environment() {
     mkdir -p ${HOME}/workspace/aevolume
@@ -151,21 +160,37 @@ push_all_versions() {
     done
 }
 
-main() {
+################################
+### MAIN PROGRAM BEGINS HERE ###
+################################
+
+# Function for testing a full CircleCI pipeline
+run_full_ci_test() {
     setup_build_environment
     build_and_save_image
     compose_up_and_test
     push_all_versions
 }
 
+# if no params are pass to script, build image using latest DB & Engine.
 if [[ $# -eq 0 ]]; then
     export CIRCLECI_BUILD=false
-    main
+    setup_build_environment
+    setup_anchore_engine
+    scripts/feed_sync_wait.py 240 10
+# Run full test suite if 'test' param is passed
+elif [[ "$1" == 'test' ]]; then
+    export CIRCLECI_BUILD=false
+    run_full_ci_test
+# If params are a valid function name, execute the functions sequentially
 else
-    if declare -f "$1" > /dev/null; then
-        "$@"
-    else
-        echo "$@ is not a valid function name"
-        exit 1
-    fi
+    for i in $@; do
+        if declare -f "$i" > /dev/null; then
+            "$i"
+        else
+            set +x
+            echo "$1 is not a valid function name"
+            exit 1
+        fi
+    done
 fi
