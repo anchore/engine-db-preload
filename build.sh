@@ -3,7 +3,8 @@
 echo "IMAGE_NAME=${IMAGE_NAME:=anchore/engine-db-preload}"
 echo "CIRCLE_PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=engine-db-preload}"
 echo "CIRCLE_BRANCH=${CIRCLE_BRANCH:=dev}"
-echo "WORKSPACE=${WORKSPACE:=${CIRCLE_WORKING_DIRECTORY:-$HOME}/workspace}"
+# Set WORKSPACE variable, but expand all embeded vars to explicity expand ~ to the absolute path (workaround for default CIRCLE_WORKING_DIRECTORY).
+echo "WORKSPACE=${WORKSPACE:=$(eval echo ${CIRCLE_WORKING_DIRECTORY:-$HOME}/workspace)}"
 eval "${CIRCLECI_BUILD:=true}"
 
 set -euxo pipefail
