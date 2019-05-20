@@ -3,6 +3,7 @@
 echo "IMAGE_NAME=${IMAGE_NAME:=anchore/engine-db-preload}"
 echo "CIRCLE_PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=engine-db-preload}"
 echo "CIRCLE_BRANCH=${CIRCLE_BRANCH:=dev}"
+echo "WORKSPACE=${WORKSPACE:=${CIRCLE_WORKING_DIRECTORY:-$HOME}/workspace}"
 eval "${CIRCLECI_BUILD:=true}"
 
 set -euxo pipefail
@@ -14,8 +15,8 @@ cleanup() {
     if ! "$CIRCLECI_BUILD"; then
         deactivate
         rm -rf .venv
-        cp -f "${HOME}/workspace/docker-compose.yaml" docker-compose.yaml
-        rm -rf "${HOME}/workspace"
+        cp -f "${WORKSPACE}/docker-compose.yaml" docker-compose.yaml
+        rm -rf "${WORKSPACE}"
         docker-compose down --volumes
     fi
     exit "$ret"
@@ -49,10 +50,10 @@ setup_anchore_engine() {
     # If circleCI build, create files/dirs on remote-docker
     if "$CIRCLECI_BUILD"; then
         ssh remote-docker 'mkdir -p ${HOME}/workspace/aevolume/db ${HOME}/workspace/aevolume/config'
-        scp config/config.yaml remote-docker:"\${HOME}/workspace/aevolume/config/config.yaml"
+        scp config/config.yaml remote-docker:"\${HOME}/aevolume/config/config.yaml"
     else
-        mkdir -p "${HOME}/workspace/aevolume/db" "${HOME}/workspace/aevolume/config"
-        cp config/config.yaml "${HOME}/workspace/aevolume/config/config.yaml"
+        mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
+        cp config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     fi
     docker-compose up -d
 
@@ -67,9 +68,9 @@ stop_anchore_engine() {
     # If running on circleCI kill forwarded socket to remote-docker
     if "$CIRCLECI_BUILD"; then
         ssh -S anchore -O exit remote-docker
-        ssh remote-docker 'sudo rm -rf ${HOME}/workspace/aevolume'
+        ssh remote-docker 'sudo rm -rf ${WORKSPACE}/aevolume'
     else
-        rm -rf "${HOME}/workspace/aevolume"
+        rm -rf "${WORKSPACE}/aevolume"
     fi
 }
 
@@ -78,10 +79,10 @@ run_tests() {
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities,nvd"
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system status
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system feeds list
-    if [[ ! -d "${HOME}/workspace/anchore-engine" ]]; then
-        git clone git@github.com:anchore/anchore-engine.git "${HOME}/workspace/anchore-engine"
+    if [[ ! -d "${WORKSPACE}/anchore-engine" ]]; then
+        git clone git@github.com:anchore/anchore-engine.git "${WORKSPACE}/anchore-engine"
     fi
-    pushd "${HOME}/workspace/anchore-engine"/scripts/tests
+    pushd "${WORKSPACE}/anchore-engine"/scripts/tests
     python aetest.py docker.io/alpine:latest
     python aefailtest.py docker.io/alpine:latest
     popd
@@ -89,13 +90,13 @@ run_tests() {
 
 save_image() {
     local anchore_version="$1"
-    mkdir -p "${HOME}/workspace/caches"
-    docker save -o "${HOME}/workspace/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-ci.tar" "${IMAGE_NAME}:dev-${anchore_version}"
+    mkdir -p "${WORKSPACE}/caches"
+    docker save -o "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-ci.tar" "${IMAGE_NAME}:dev-${anchore_version}"
 }
 
 load_image() {
     local anchore_version="$1"
-    docker load -i "${HOME}/workspace/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-ci.tar"
+    docker load -i "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-ci.tar"
 }
 
 push_dockerhub() {
@@ -125,14 +126,14 @@ push_dockerhub() {
 ########################################################
 
 setup_build_environment() {
-    mkdir -p "${HOME}/workspace/aevolume"
-    cp docker-compose.yaml "${HOME}/workspace/docker-compose.yaml"
+    mkdir -p "${WORKSPACE}/aevolume"
+    cp docker-compose.yaml "${WORKSPACE}/docker-compose.yaml"
     install_dependencies
 }
 
 build_and_save_image() {
     for version in $(cat versions.txt); do
-        cp -f ${HOME}/workspace/docker-compose.yaml docker-compose.yaml
+        cp -f ${WORKSPACE}/docker-compose.yaml docker-compose.yaml
         if docker pull "${IMAGE_NAME}:${version}" &> /dev/null; then
             sed -i "s|postgres:9|${IMAGE_NAME}:${version}|g" docker-compose.yaml
         fi
@@ -147,7 +148,7 @@ build_and_save_image() {
 compose_up_and_test() {
     for version in $(cat versions.txt); do
         load_image "$version"
-        cp -f "${HOME}/workspace/docker-compose.yaml" docker-compose.yaml
+        cp -f "${WORKSPACE}/docker-compose.yaml" docker-compose.yaml
         sed -i "s|postgres:9|${IMAGE_NAME}:dev-${version}|g" docker-compose.yaml
         setup_anchore_engine "$version"
         run_tests "$version"
