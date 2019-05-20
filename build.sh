@@ -50,7 +50,7 @@ setup_anchore_engine() {
     # If circleCI build, create files/dirs on remote-docker
     if "$CIRCLECI_BUILD"; then
         ssh remote-docker 'mkdir -p ${HOME}/workspace/aevolume/db ${HOME}/workspace/aevolume/config'
-        scp config/config.yaml remote-docker:"\${HOME}/aevolume/config/config.yaml"
+        scp config/config.yaml remote-docker:"\${HOME}/workspace/aevolume/config/config.yaml"
     else
         mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
         cp config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
