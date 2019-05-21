@@ -2,14 +2,14 @@
 version: '2'
 services:
   anchore-engine:
-    image: docker.io/anchore/anchore-engine:ANCHORE_VERSION
+    image: ${COMPOSE_ENGINE_IMAGE}
     container_name: anchore-engine
     depends_on:
      - anchore-db
     ports:
      - "8228:8228"
     volumes:
-     - ${HOME}/workspace/aevolume/config:/config/:z
+     - ${WORKSPACE}/aevolume/config:/config/:z
     environment:
      - ANCHORE_HOST_ID=anchore-engine
     logging:
@@ -17,10 +17,10 @@ services:
      options:
       max-size: 100m
   anchore-db:
-    image: "postgres:9"
+    image: ${COMPOSE_DB_IMAGE}
     container_name: anchore-db
     volumes:
-     - ${HOME}/workspace/aevolume/db:/var/lib/postgresql/data/pgdata/:z
+     - ${WORKSPACE}/aevolume/db:/var/lib/postgresql/data/pgdata/:z
     environment:
       - POSTGRES_PASSWORD=mysecretpassword
       - PGDATA=/var/lib/postgresql/data/pgdata/

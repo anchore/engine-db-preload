@@ -20,11 +20,8 @@ jobs:
       - setup_remote_docker
       - checkout
       - run:
-          name: Setup Build Environment
-          command: ./build.sh setup_build_environment
-      - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: ./build.sh build_and_save_image
+          command: ./build.sh build_and_save_images
       - persist_to_workspace:
           root: ./workspace/
           paths:
@@ -39,11 +36,8 @@ jobs:
       - checkout
       - <<: *attach_workspace
       - run:
-          name: Install Dependencies
-          command: ./build.sh install_dependencies
-      - run:
           name: Docker Compose & Run Tests
-          command: ./build.sh compose_up_and_test
+          command: ./build.sh test_built_images
 
   push_dockerhub:
     docker:
