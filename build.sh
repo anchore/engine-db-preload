@@ -2,7 +2,7 @@
 
 # Fail on any errors, including in pipelines
 # Don't allow unset variables. Trace all functions with DEBUG trap
-set -exuo pipefail -o functrace
+set -euo pipefail -o functrace
 
 display_usage() {
 cat << EOF
@@ -143,7 +143,7 @@ compose_down_anchore_engine() {
     # If running on circleCI kill forwarded socket to remote-docker
     if [[ "$CI" == true ]]; then
         ssh -S anchore -O exit remote-docker
-        ssh remote-docker 'sudo rm -rf ${HOME}/aevolume'
+        ssh remote-docker "sudo rm -rf ${WORKSPACE}/aevolume"
     else
         rm -rf "${WORKSPACE}/aevolume"
     fi
@@ -296,7 +296,7 @@ setup_and_print_env_vars() {
         sleep 5
     fi
     # Trap all bash commands & print to screen. Like using set -v but allows printing in color
-    trap 'printf "%s\n" "${color_red}+ ${BASH_COMMAND}${color_normal}" >&2' DEBUG
+    trap 'printf "%s+ %s%s\n" "${color_cyan}" "${BASH_COMMAND}" "${color_normal}" >&2' DEBUG
 }
 
 ########################################
@@ -322,9 +322,10 @@ trap 'cleanup' EXIT SIGINT SIGTERM ERR
 
 # Setup terminal colors for printing
 export TERM=xterm
-color_normal=$(tput sgr0)
 color_red=$(tput setaf 1)
+color_cyan=$(tput setaf 6)
 color_yellow=$(tput setaf 3)
+color_normal=$(tput sgr0)
 
 # If no params are passed to script, build the image
 # Run script with the 'test' param to execute the full pipeline locally
