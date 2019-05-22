@@ -41,7 +41,7 @@ jobs:
 
   push_dockerhub:
     docker:
-      - image: docker:stable-git
+      - image: circleci/python:3.6
     steps:
       - setup_remote_docker
       - checkout
