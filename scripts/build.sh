@@ -69,24 +69,17 @@ cleanup() {
         set +o functrace
     fi
     if [[ "$SKIP_FINAL_CLEANUP" == false ]]; then
-        deactivate &> /dev/null
-        docker-compose down --volumes
+        deactivate 2> /dev/null
+        docker-compose down --volumes 2> /dev/null
         if [[ ! -z "$DOCKER_NAME" ]]; then
-            docker kill "$DOCKER_NAME"
-            docker rm "$DOCKER_NAME"
+            docker kill "$DOCKER_NAME" 2> /dev/null
+            docker rm "$DOCKER_NAME" 2> /dev/null
         fi
         popd &> /dev/null
         rm -rf "$WORKING_DIRECTORY"
     fi
     popd &> /dev/null
     exit "$ret"
-}
-
-# The main() function represents the full CI pipeline flow, can be used to run the test pipeline locally
-main() {
-    build_and_save_images
-    test_built_images
-    push_all_versions
 }
 
 # All ci_test_*() functions are used to mock a CircleCI environment pipeline utilizing Docker-in-Docker
@@ -97,6 +90,13 @@ ci_test_run_workflow() {
     ci_test_job 'docker.io/anchore/test-infra:latest' 'push_all_versions'
 }
 
+# The main() function represents the full CI pipeline flow, can be used to run the test pipeline locally
+main() {
+    build_and_save_images
+    test_built_images
+    push_all_versions
+}
+
 
 #################################################################
 ###   FUNCTIONS CALLED DIRECTLY BY CIRCLECI - RUNTIME ORDER   ###
@@ -104,7 +104,7 @@ ci_test_run_workflow() {
 
 build_and_save_images() {
     setup_build_environment
-    for version in ${BUILD_VERSIONS[@]}; do
+    for version in "${BUILD_VERSIONS[@]}"; do
         # If the image/tag exists on DockerHub - build new image using DB from existing image
         if docker pull "${IMAGE_REPO}:${version}" &> /dev/null; then
             export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${version}")
@@ -119,7 +119,7 @@ build_and_save_images() {
 
 test_built_images() {
     setup_build_environment
-    for version in ${BUILD_VERSIONS[@]}; do
+    for version in "${BUILD_VERSIONS[@]}"; do
         load_image "$version"
         export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:dev-${version}")
         compose_up_anchore_engine "$version"
@@ -129,7 +129,7 @@ test_built_images() {
 }
 
 push_all_versions() {
-    for version in ${BUILD_VERSIONS[@]}; do
+    for version in "${BUILD_VERSIONS[@]}"; do
         load_image "$version"
         push_dockerhub "$version"
     done
@@ -200,6 +200,7 @@ setup_build_environment() {
         mkdir -p "$WORKING_DIRECTORY"
         cp -a . "$WORKING_DIRECTORY"
     fi
+    pushd "$WORKING_DIRECTORY"
     mkdir -p "${WORKSPACE}/caches" "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
     cp -f ${WORKING_DIRECTORY}/config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     # Install dependencies to system on CircleCI & virtualenv locally
@@ -208,7 +209,6 @@ setup_build_environment() {
         sudo pip install --upgrade docker-compose
         sudo pip install --upgrade anchorecli
     else
-        cd "${WORKING_DIRECTORY}"
         virtualenv .venv
         source .venv/bin/activate
         pip install --upgrade pip
@@ -228,7 +228,6 @@ ci_test_job() {
     export DOCKER_NAME="${RANDOM:-TEMP}-ci-test"
     docker run --net host -it --name "$DOCKER_NAME" -v "${WORKING_DIRECTORY}:${WORKING_DIRECTORY}" -v /var/run/docker.sock:/var/run/docker.sock "$ci_image" /bin/sh -c "\
         cd ${WORKING_DIRECTORY} && \
-        (if ! which bash; then apk add bash || apt-get update && apt-get install bash || yum install bash || true;fi) && \
         export WORKING_DIRECTORY=${WORKING_DIRECTORY} && \
         sudo -E bash scripts/build.sh $ci_function \
     "
@@ -237,7 +236,11 @@ ci_test_job() {
 
 load_image() {
     local anchore_version="$1"
-    docker load -i "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-ci.tar"
+    if [[ "$anchore_version" == 'dev' ]]; then
+        docker load -i "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-dev.tar"
+    else
+        docker load -i "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-dev.tar"
+    fi
 }
 
 push_dockerhub() {
@@ -271,7 +274,11 @@ push_dockerhub() {
 save_image() {
     local anchore_version="$1"
     mkdir -p "${WORKSPACE}/caches"
-    docker save -o "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-ci.tar" "${IMAGE_REPO}:dev-${anchore_version}"
+    if [[ "$anchore_version" == 'dev' ]]; then
+        docker save -o "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-dev.tar" "${IMAGE_NAME}:dev"
+    else
+        docker save -o "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-dev.tar" "${IMAGE_NAME}:dev-${anchore_version}"
+    fi
 }
 
 setup_and_print_env_vars() {
@@ -336,6 +343,8 @@ color_cyan=$(tput setaf 6)
 color_yellow=$(tput setaf 3)
 color_normal=$(tput setaf 9)
 
+set_environment_variables
+
 # If no params are passed to script, build the image
 # Run script with the 'test' param to execute the full pipeline locally
 # Run script with the 'ci' param to execute a fully mocked CircleCI pipeline, running in docker
@@ -344,21 +353,14 @@ if [[ "$#" -eq 0 ]]; then
     display_usage >&2
     exit 1
 elif [[ "$1" == 'build' ]];then
-    set_environment_variables
     build
 elif [[ "$1" == 'test' ]]; then
-    # DO NOT ALLOW FINAL CLEANUP OR IT WILL DELETE YOUR $PWD
-    export SKIP_FINAL_CLEANUP=true
-    export WORKING_DIRECTORY="${PWD}"
-    set_environment_variables
     main
 elif [[ "$1" == 'ci' ]]; then
-    set_environment_variables
     ci_test_run_workflow
 else
     export SKIP_FINAL_CLEANUP=true
     if declare -f "$1" > /dev/null; then
-        set_environment_variables
         "$@"
     else
         display_usage >&2

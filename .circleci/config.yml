@@ -21,12 +21,11 @@ jobs:
       - checkout
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: ./build.sh build_and_save_images
+          command: scripts/build.sh build_and_save_images
       - persist_to_workspace:
           root: ./workspace/
           paths:
             - caches/*
-            - docker-compose.yaml
 
   run_tests:
     docker:
@@ -37,7 +36,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Docker Compose & Run Tests
-          command: ./build.sh test_built_images
+          command: scripts/build.sh test_built_images
 
   push_dockerhub:
     docker:
@@ -48,7 +47,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Push to DockerHub
-          command: apk add bash && ./build.sh push_all_versions
+          command: scripts/build.sh push_all_versions
 
 workflows:
   default_workflow:
