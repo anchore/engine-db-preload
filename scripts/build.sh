@@ -21,9 +21,10 @@ display_usage() {
     Usage: ${0##*/} <build> <test> <ci> <function_name>  [ function_args ] [ ... ] 
         
         build - Build a dev image tagged IMAGE_REPO:dev'
-        test - Run test pipeline locally on your workstation
         ci - Run mocked CircleCI pipeline using Docker-in-Docker
         function_name - Invoke a function directly using build environment
+        dev - Run test pipeline on latest code locally on your workstation
+        main - Run full ci pipeline locally on your workstation
 EOF
     echo "${color_normal}"
 }
@@ -39,11 +40,18 @@ export LATEST_VERSION='v0.4.0'
 set_environment_variables() {
     # PROJECT_VARS are custom vars that are modified between projects
     # Expand all required ENV vars or set to default values with := variable substitution
-    # Use eval on $CIRCLE_WORKING_DIRECTORY to ensure ~ gets expanded to the absolute path
+    # Use eval on $CIRCLE_WORKING_DIRECTORY to ensure default value (~/project) gets expanded to the absolute path
     export PROJECT_VARS=( \
-        IMAGE_REPO=${IMAGE_REPO:=anchore/engine-db-preload} \
-        CIRCLE_PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=engine-db-preload} \
-        WORKING_DIRECTORY=${WORKING_DIRECTORY:=$(eval echo ${CIRCLE_WORKING_DIRECTORY:="${HOME}/ci_test_temp"})} \
+        "IMAGE_REPO=${IMAGE_REPO:=anchore/engine-db-preload}" \
+        "PROJECT_REPONAME=${CIRCLE_PROJECT_REPONAME:=engine-db-preload}" \
+        "WORKING_DIRECTORY=${WORKING_DIRECTORY:=$(eval echo ${CIRCLE_WORKING_DIRECTORY:="${HOME}/tempci_${IMAGE_REPO##*/}_${RANDOM}/project"})}" \
+        "WORKSPACE=${WORKSPACE:=$(dirname "$WORKING_DIRECTORY")/workspace}" \
+    )
+    # These vars are static & defaults should not need to be changed
+    PROJECT_VARS+=( \
+        "CI=${CI:=false}" \
+        "GIT_BRANCH=${CIRCLE_BRANCH:=dev}" \
+        "SKIP_FINAL_CLEANUP=${SKIP_FINAL_CLEANUP:=false}" \
     )
     setup_and_print_env_vars
 }
@@ -71,12 +79,17 @@ cleanup() {
     if [[ "$SKIP_FINAL_CLEANUP" == false ]]; then
         deactivate 2> /dev/null
         docker-compose down --volumes 2> /dev/null
-        if [[ ! -z "$DOCKER_NAME" ]]; then
-            docker kill "$DOCKER_NAME" 2> /dev/null
-            docker rm "$DOCKER_NAME" 2> /dev/null
+        if [[ "${DOCKER_RUN_IDS[@]}" -ne 0 ]]; then
+            for i in "${DOCKER_RUN_IDS[@]}"; do
+                docker kill "$i" 2> /dev/null
+                docker rm "$i" 2> /dev/null
+            done
         fi
         popd &> /dev/null
-        rm -rf "$WORKING_DIRECTORY"
+        rm -rf $(dirname "$WORKING_DIRECTORY")
+    else
+        echo "Workspace dir: $WORKSPACE"
+        echo "Working Dir: $WORKING_DIRECTORY"
     fi
     popd &> /dev/null
     exit "$ret"
@@ -97,42 +110,69 @@ main() {
     push_all_versions
 }
 
+dev_test() {
+    build_and_save_images dev
+    test_built_images dev
+    push_all_versions dev
+}
+
 
 #################################################################
 ###   FUNCTIONS CALLED DIRECTLY BY CIRCLECI - RUNTIME ORDER   ###
 #################################################################
 
 build_and_save_images() {
+    build_version="${1:-all}"
     setup_build_environment
-    for version in "${BUILD_VERSIONS[@]}"; do
-        # If the image/tag exists on DockerHub - build new image using DB from existing image
-        if docker pull "${IMAGE_REPO}:${version}" &> /dev/null; then
-            export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${version}")
-        fi
-        compose_up_anchore_engine "$version"
+    if [[ "$build_version" == 'all' ]]; then
+        for version in "${BUILD_VERSIONS[@]}"; do
+            compose_up_anchore_engine "$version"
+            scripts/feed_sync_wait.py 240 10
+            compose_down_anchore_engine
+            docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
+            save_image "$version"
+        done
+    else
+        compose_up_anchore_engine "$build_version"
         scripts/feed_sync_wait.py 240 10
         compose_down_anchore_engine
-        docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
-        save_image "$version"
-    done
+        docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
+        save_image "$build_version"
+    fi
 }
 
 test_built_images() {
+    build_version="${1:-all}"
     setup_build_environment
-    for version in "${BUILD_VERSIONS[@]}"; do
-        load_image "$version"
-        export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:dev-${version}")
-        compose_up_anchore_engine "$version"
-        run_tests "$version"
+    if [[ "$build_version" == 'all' ]]; then
+        for version in "${BUILD_VERSIONS[@]}"; do
+            load_image "$version"
+            export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:dev-${version}")
+            compose_up_anchore_engine "$version"
+            run_tests
+            compose_down_anchore_engine
+        done
+    else
+        load_image "$build_version"
+        export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:dev-${build_version}")
+        compose_up_anchore_engine "$build_version"
+        run_tests
         compose_down_anchore_engine
-    done
+    fi
 }
 
 push_all_versions() {
-    for version in "${BUILD_VERSIONS[@]}"; do
-        load_image "$version"
-        push_dockerhub "$version"
-    done
+    build_version="${1:-all}"
+    setup_build_environment
+    if [[ "$build_version" == 'all' ]]; then
+        for version in "${BUILD_VERSIONS[@]}"; do
+            load_image "$version"
+            push_dockerhub "$version"
+        done
+    else
+        load_image "$build_version"
+        push_dockerhub "$build_version"
+    fi
 }
 
 
@@ -153,7 +193,11 @@ compose_down_anchore_engine() {
 }
 
 compose_up_anchore_engine() {
-    local anchore_version="${1:-dev}"
+    local anchore_version="$1"
+    # If the image/tag exists on DockerHub & $COMPOSE_DB_IMAGE is not set - build new image using DB from existing image
+    if [[ "${COMPOSE_DB_IMAGE:-false}" == false ]] && docker pull "${IMAGE_REPO}:${anchore_version}" &> /dev/null; then
+        COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${anchore_version}")
+    fi
     # set default values using := notation if COMPOSE vars aren't already set
     if [[ "$anchore_version" == 'dev' ]]; then
         export COMPOSE_DB_IMAGE=${COMPOSE_DB_IMAGE:="docker.io/anchore/engine-db-preload:latest"}
@@ -179,29 +223,8 @@ compose_up_anchore_engine() {
     fi
 }
 
-run_tests() {
-    local anchore_version="$1"
-    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities,nvd"
-    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system status
-    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system feeds list
-    # Don't clone anchore-engine if it already exists
-    if [[ ! -d "${WORKSPACE}/anchore-engine" ]]; then
-        git clone https://github.com/anchore/anchore-engine "${WORKSPACE}/anchore-engine"
-    fi
-    pushd "${WORKSPACE}/anchore-engine/scripts/tests"
-    python aetest.py docker.io/alpine:latest
-    python aefailtest.py docker.io/alpine:latest
-    popd
-}
-
-setup_build_environment() {
-    # Copy source code to $WORKING_DIRECTORY for mounting to docker volume as working dir
-    if [[ ! -d "$WORKING_DIRECTORY" ]]; then
-        mkdir -p "$WORKING_DIRECTORY"
-        cp -a . "$WORKING_DIRECTORY"
-    fi
-    pushd "$WORKING_DIRECTORY"
-    mkdir -p "${WORKSPACE}/caches" "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
+install_dependencies() {
+    mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
     cp -f ${WORKING_DIRECTORY}/config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     # Install dependencies to system on CircleCI & virtualenv locally
     if [[ "$CI" == true ]]; then
@@ -217,6 +240,20 @@ setup_build_environment() {
     fi
 }
 
+run_tests() {
+    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities,nvd"
+    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system status
+    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system feeds list
+    # Don't clone anchore-engine if it already exists
+    if [[ ! -d "${WORKSPACE}/anchore-engine" ]]; then
+        git clone https://github.com/anchore/anchore-engine "${WORKSPACE}/anchore-engine"
+    fi
+    pushd "${WORKSPACE}/anchore-engine/scripts/tests"
+    python aetest.py docker.io/alpine:latest
+    python aefailtest.py docker.io/alpine:latest
+    popd
+}
+
 
 ########################################################
 ###   COMMON HELPER FUNCTIONS - ALPHABETICAL ORDER   ###
@@ -225,22 +262,21 @@ setup_build_environment() {
 ci_test_job() {
     local ci_image=$1
     local ci_function=$2
-    export DOCKER_NAME="${RANDOM:-TEMP}-ci-test"
-    docker run --net host -it --name "$DOCKER_NAME" -v "${WORKING_DIRECTORY}:${WORKING_DIRECTORY}" -v /var/run/docker.sock:/var/run/docker.sock "$ci_image" /bin/sh -c "\
+    local docker_name="${RANDOM:-TEMP}-ci-test"
+    docker run --net host -it --name "$docker_name" -v $(dirname "$WORKING_DIRECTORY"):$(dirname "$WORKING_DIRECTORY") -v /var/run/docker.sock:/var/run/docker.sock "$ci_image" /bin/sh -c "\
         cd ${WORKING_DIRECTORY} && \
+        cp ${WORKING_DIRECTORY}/scripts/build.sh $(dirname "$WORKING_DIRECTORY")/build.sh && \
         export WORKING_DIRECTORY=${WORKING_DIRECTORY} && \
-        sudo -E bash scripts/build.sh $ci_function \
+        sudo -E bash $(dirname "$WORKING_DIRECTORY")/build.sh $ci_function \
     "
-    docker stop "$DOCKER_NAME" && docker rm "$DOCKER_NAME"
+    local docker_id=$(docker inspect $docker_name | jq '.[].Id')
+    docker kill "$docker_id" && docker rm "$docker_id"
+    DOCKER_RUN_IDS+=("$docker_id")
 }
 
 load_image() {
     local anchore_version="$1"
-    if [[ "$anchore_version" == 'dev' ]]; then
-        docker load -i "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-dev.tar"
-    else
-        docker load -i "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-dev.tar"
-    fi
+    docker load -i "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar"
 }
 
 push_dockerhub() {
@@ -248,7 +284,7 @@ push_dockerhub() {
     if [[ "$CI" == true ]]; then
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
     fi
-    if [[ "$CIRCLE_BRANCH" == 'master' ]] && [[ "$CI" == true ]]; then
+    if [[ "$GIT_BRANCH" == 'master' ]] && [[ "$CI" == true ]] && [[ ! "$anchore_version" == 'dev' ]]; then
         docker tag "${IMAGE_REPO}:dev-${anchore_version}" "${IMAGE_REPO}:${anchore_version}"
         echo "Pushing to DockerHub - ${IMAGE_REPO}:${anchore_version}"
         docker push "${IMAGE_REPO}:${anchore_version}"
@@ -258,27 +294,19 @@ push_dockerhub() {
             docker push "${IMAGE_REPO}:latest"
         fi
     else
-        if [[ "$anchore_version" == 'dev' ]]; then
-            docker tag "${IMAGE_REPO}:dev" "anchore/private_testing:${CIRCLE_PROJECT_REPONAME}-${anchore_version}"
-        else
-            docker tag "${IMAGE_REPO}:dev-${anchore_version}" "anchore/private_testing:${CIRCLE_PROJECT_REPONAME}-${anchore_version}"
-        fi
-        echo "Pushing to DockerHub - anchore/private_testing:${CIRCLE_PROJECT_REPONAME}-${anchore_version}"
+        docker tag "${IMAGE_REPO}:dev-${anchore_version}" "anchore/private_testing:${PROJECT_REPONAME}-${anchore_version}"
+        echo "Pushing to DockerHub - anchore/private_testing:${PROJECT_REPONAME}-${anchore_version}"
         if [[ "$CI" == false ]]; then
             sleep 10
         fi
-        docker push "anchore/private_testing:${CIRCLE_PROJECT_REPONAME}-${anchore_version}"
+        docker push "anchore/private_testing:${PROJECT_REPONAME}-${anchore_version}"
     fi
 }
 
 save_image() {
     local anchore_version="$1"
     mkdir -p "${WORKSPACE}/caches"
-    if [[ "$anchore_version" == 'dev' ]]; then
-        docker save -o "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-dev.tar" "${IMAGE_NAME}:dev"
-    else
-        docker save -o "${WORKSPACE}/caches/${CIRCLE_PROJECT_REPONAME}-${anchore_version}-dev.tar" "${IMAGE_NAME}:dev-${anchore_version}"
-    fi
+    docker save -o "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar" "${IMAGE_REPO}:dev-${anchore_version}"
 }
 
 setup_and_print_env_vars() {
@@ -292,26 +320,25 @@ setup_and_print_env_vars() {
         printf "%s" "${color_yellow}"
         printf "%s\n" "$var"
     done
-    # BUILD_VARS are static variables that don't change between projects
-    declare -a BUILD_VARS=( \
-        CI=${CI:=false} \
-        CIRCLE_BRANCH=${CIRCLE_BRANCH:=dev} \
-        SKIP_FINAL_CLEANUP=${SKIP_FINAL_CLEANUP:=false} \
-        WORKSPACE=${WORKSPACE:=${WORKING_DIRECTORY}/workspace} \
-    )
-    # Export & print all build env vars to the screen
-    for var in ${BUILD_VARS[@]}; do
-        export "$var"
-        printf "%s" "${color_yellow}"
-        printf "%s\n" "$var"
-    done
     echo "${color_normal}"
     # If running tests manually, sleep for a few seconds to give time to visually double check that ENV is setup correctly
     if [[ "$CI" == false ]]; then
         sleep 5
     fi
-    # Trap all bash commands & print to screen. Like using set -v but allows printing in color
-    trap 'printf "%s+ %s%s\n" "${color_cyan}" "${BASH_COMMAND}" "${color_normal}" >&2' DEBUG
+    # Setup a variable for docker image cleanup at end of script
+    declare -a DOCKER_RUN_IDS
+    export DOCKER_RUN_IDS
+}
+
+setup_build_environment() {
+    # Copy source code to $WORKING_DIRECTORY for mounting to docker volume as working dir
+    if [[ ! -d "$WORKING_DIRECTORY" ]]; then
+        mkdir -p "$WORKING_DIRECTORY"
+        cp -a . "$WORKING_DIRECTORY"
+    fi
+    mkdir -p "${WORKSPACE}/caches"
+    pushd "$WORKING_DIRECTORY"
+    install_dependencies || true
 }
 
 ########################################
@@ -329,7 +356,7 @@ trap 'printf "\n%s+ PIPELINE ERROR - exit code %s - cleaning up %s\n" "${color_r
 # If running on test-infra container ci_utils.sh is installed to /usr/local/bin/
 # if [[ -f /usr/local/bin/ci_utils.sh ]]; then
 #     source ci_utils.sh
-# elif [[ -f "${WORKSPACE}/test-infra" ]]; then
+# elif [[ -f "${WORKSPACE}/test-infra/scripts/ci_utils.sh" ]]; then
 #     source "${WORKSPACE}/test-infra/scripts/ci_utils.sh"
 # else
 #     git clone https://github.com/anchore/test-infra "${WORKSPACE}/test-infra"
@@ -345,6 +372,9 @@ color_normal=$(tput setaf 9)
 
 set_environment_variables
 
+# Trap all bash commands & print to screen. Like using set -v but allows printing in color
+trap 'printf "%s+ %s%s\n" "${color_cyan}" "$BASH_COMMAND" "${color_normal}" >&2' DEBUG
+
 # If no params are passed to script, build the image
 # Run script with the 'test' param to execute the full pipeline locally
 # Run script with the 'ci' param to execute a fully mocked CircleCI pipeline, running in docker
@@ -354,6 +384,8 @@ if [[ "$#" -eq 0 ]]; then
     exit 1
 elif [[ "$1" == 'build' ]];then
     build
+elif [[ "$1" == 'dev' ]];then
+    dev_test
 elif [[ "$1" == 'test' ]]; then
     main
 elif [[ "$1" == 'ci' ]]; then
@@ -364,7 +396,7 @@ else
         "$@"
     else
         display_usage >&2
-        printf "%sERROR - %s is not a valid function name %s\n" "$color_red" "$1" "$color_normal" >&2
+        printf "%sERROR - %s is not a valid function name %s\n" "${color_red}" "$1" "${color_normal}" >&2
         exit 1
     fi
 fi

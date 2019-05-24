@@ -8,7 +8,7 @@
 # Define YAML anchors
 .attach_workspace: &attach_workspace
   attach_workspace:
-      at: ./workspace
+      at: /home/circleci/workspace
 
 # Start circleci configuration
 version: 2.1
@@ -23,7 +23,7 @@ jobs:
           name: Setup Anchore Engine, Sync Feeds & Build Image
           command: scripts/build.sh build_and_save_images
       - persist_to_workspace:
-          root: ./workspace/
+          root: /home/circleci/workspace/
           paths:
             - caches/*
 
