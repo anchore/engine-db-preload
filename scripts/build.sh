@@ -16,7 +16,8 @@ display_usage() {
         
         SKIP_CLEANUP = [ true | false ] - skips cleanup job that runs on exit (kills containers & removes workspace)
         IMAGE_REPO = docker.io/example/test - specify a custom image repo to build/test
-        WORKING_DIRECTORY = /home/test/workspace - used as a temporary workspace for build/test
+        WORKING_DIRECTORY = /home/test/workdir - used as a temporary workspace for build/test
+        WORKSPACE = /home/test/workspace - used to store temporary artifacts
 
     Usage: ${0##*/} <build> <test> <ci> <function_name>  [ function_args ] [ ... ] 
         
@@ -134,7 +135,7 @@ build_and_save_images() {
         done
     else
         compose_up_anchore_engine "$build_version"
-        scripts/feed_sync_wait.py 240 10
+        scripts/feed_sync_wait.py 300 10
         compose_down_anchore_engine
         docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
         save_image "$build_version"
