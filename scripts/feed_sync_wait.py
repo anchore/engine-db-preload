@@ -158,8 +158,7 @@ final_prepop_container_image = "anchore/engine-db-preload:dev"
 cmds = [
     'docker-compose stop anchore-engine'.split(),
     "docker-compose exec -T anchore-db /bin/bash -c".split() + ['pg_dump -U postgres -Z 9 {} > /docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz'.format(exclude_opts)],
-    'docker-compose stop'.split(),
-    "docker commit anchore-db {}".format(final_prepop_container_image).split(),
+    'docker cp anchore-db:/docker-entrypoint-initdb.d/anchore-bootstrap.sql.gz .'.split(),
     'docker-compose down --volumes'.split(),
 ]
 for cmd in cmds:

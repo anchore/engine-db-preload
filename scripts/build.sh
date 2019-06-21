@@ -65,9 +65,7 @@ set_environment_variables() {
 
 # The build() function is used to locally build the project image - ${IMAGE_REPO}:dev
 build() {
-    setup_build_environment
-    compose_up_anchore_engine
-    scripts/feed_sync_wait.py 240 10
+    build_images
 }
 
 # The cleanup() function that runs whenever the script exits
@@ -99,20 +97,23 @@ cleanup() {
 # All ci_test_*() functions are used to mock a CircleCI environment pipeline utilizing Docker-in-Docker
 ci_test_run_workflow() {
     setup_build_environment
-    ci_test_job 'docker.io/anchore/test-infra:latest' 'build_and_save_images'
+    ci_test_job 'docker.io/anchore/test-infra:latest' 'build_images'
+    ci_test_job 'docker.io/anchore/test-infra:latest' 'save_images'
     ci_test_job 'docker.io/anchore/test-infra:latest' 'test_built_images'
     ci_test_job 'docker.io/anchore/test-infra:latest' 'push_all_versions'
 }
 
 # The main() function represents the full CI pipeline flow, can be used to run the test pipeline locally
 main() {
-    build_and_save_images
+    build_images
+    save_images
     test_built_images
     push_all_versions
 }
 
 dev_test() {
-    build_and_save_images dev
+    build_images dev
+    save_images dev
     test_built_images dev
     push_all_versions dev
 }
@@ -122,22 +123,34 @@ dev_test() {
 ###   FUNCTIONS CALLED DIRECTLY BY CIRCLECI - RUNTIME ORDER   ###
 #################################################################
 
-build_and_save_images() {
+build_images() {
     build_version="${1:-all}"
     setup_build_environment
     if [[ "$build_version" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             compose_up_anchore_engine "$version"
-            scripts/feed_sync_wait.py 240 10
+            scripts/feed_sync_wait.py 360 10
             compose_down_anchore_engine
+            docker build -t "${IMAGE_REPO}:dev" .
             docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
+        done 
+    else
+        compose_up_anchore_engine "$build_version"
+        scripts/feed_sync_wait.py 360 10
+        compose_down_anchore_engine
+        docker build -t "${IMAGE_REPO}:dev" .
+        docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
+    fi
+}
+
+save_images() {
+    build_version="${1:-all}"
+    setup_build_environment
+    if [[ "$build_version" == 'all' ]]; then
+        for version in "${BUILD_VERSIONS[@]}"; do
             save_image "$version"
         done
     else
-        compose_up_anchore_engine "$build_version"
-        scripts/feed_sync_wait.py 300 10
-        compose_down_anchore_engine
-        docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
         save_image "$build_version"
     fi
 }
