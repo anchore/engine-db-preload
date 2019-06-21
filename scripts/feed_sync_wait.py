@@ -45,8 +45,8 @@ def verify_anchore_engine_available(user='admin', pw='foobar', timeout=600, url=
 
     return(True)
 
-def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://localhost:8228/v1/system/feeds?sync=true"):
-    cmd = 'curl -u {}:{} -X POST {}'.format(user, pw, feed_sync_url).split()
+def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://localhost:8228/v1/system/feeds"):
+    cmd = 'curl -u {}:{} -X POST {}?sync=true'.format(user, pw, feed_sync_url).split()
     popen = subprocess.Popen(cmd)
     start_ts = time.time()
     while not popen.poll():
@@ -72,7 +72,8 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
                             unsynced_names.append(group.get('name', ""))
                         total = total+1
                 print ("{} / {} groups completed".format(synced, total))
-                print ("\tsynced: {}\n\tunsynced: {}".format(synced_names, unsynced_names))
+                timestamp=datetime.now().strftime('%x_%X')
+                print ("{}\n\tsynced: {}\n\tunsynced: {}".format(timestamp, synced_names, unsynced_names))
             else:
                 print ("got bad response, trying again httpcode={} data={}".format(r.status_code, r.text))
 
@@ -118,7 +119,7 @@ try:
     if timer < 1.0:
         timer = 1.0
     elif timer > 60.0:
-        timer = 10.0
+        timer = 60.0
 except:
     timer = 5.0
 

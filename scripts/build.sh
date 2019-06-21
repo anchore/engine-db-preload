@@ -129,14 +129,14 @@ build_images() {
     if [[ "$build_version" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             compose_up_anchore_engine "$version"
-            scripts/feed_sync_wait.py 360 10
+            scripts/feed_sync_wait.py 360 60
             compose_down_anchore_engine
             docker build -t "${IMAGE_REPO}:dev" .
             docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
         done 
     else
         compose_up_anchore_engine "$build_version"
-        scripts/feed_sync_wait.py 360 10
+        scripts/feed_sync_wait.py 360 60
         compose_down_anchore_engine
         docker build -t "${IMAGE_REPO}:dev" .
         docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
