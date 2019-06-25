@@ -35,7 +35,7 @@ def discover_anchore_ids():
 
     return(engine_id, db_id)
 
-def verify_anchore_engine_available(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
+def verify_anchore_engine_available(user='admin', pw='foobar', timeout=300, url="http://localhost:8228/v1"):
     cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready ""'.format(user, pw, url, timeout)
     try:
         for line in execute(shlex.split(cmd)):
@@ -71,9 +71,9 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
                         else:
                             unsynced_names.append(group.get('name', ""))
                         total = total+1
-                print ("{} / {} groups completed".format(synced, total))
                 timestamp=datetime.now().strftime('%x_%X')
-                print ("{}\n\tsynced: {}\n\tunsynced: {}".format(timestamp, synced_names, unsynced_names))
+                print ("{} - {} / {} groups completed".format(timestamp, synced, total))
+                print ("\tsynced: {}\n\tunsynced: {}\n".format(synced_names, unsynced_names))
             else:
                 print ("got bad response, trying again httpcode={} data={}".format(r.status_code, r.text))
 
@@ -90,7 +90,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
         if time.time() - start_ts > timeout:
             raise Exception("timed out waiting for feeds to sync after {} seconds".format(timeout))
 
-def wait_for_feed_sync(user='admin', pw='foobar', timeout=600, url="http://localhost:8228/v1"):
+def wait_for_feed_sync(user='admin', pw='foobar', timeout=300, url="http://localhost:8228/v1"):
     cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities,nvd'.format(user, pw, url, timeout)
     try:
         for line in execute(cmd.split()):
@@ -108,8 +108,8 @@ if len(sys.argv) <= 1:
 
 try:
     minutes = int(sys.argv[1])
-    if minutes > 360:
-        minutes = 360
+    if minutes > 300:
+        minutes = 300
     elif minutes < 5:
         minutes = 5
 except:
@@ -133,7 +133,7 @@ print ("got container IDs: engine={} db={}".format(engine_id, db_id))
 
 # next, ensure that anchore-engine is fully up and responsive, ready to handle feed sync list API call
 try:
-    rc = verify_anchore_engine_available(timeout=600)
+    rc = verify_anchore_engine_available(timeout=minutes*60)
 except Exception as err:
     print ("anchore-engine is not running or available - exception: {}".format(err))
     sys.exit(1)
@@ -147,7 +147,7 @@ except Exception as err:
 
 # enter loop that exits if too much time has passed, or initial feed sync has completed
 try:
-    rc = wait_for_feed_sync(timeout=600)
+    rc = wait_for_feed_sync(timeout=minutes*60)
 except Exception as err:
     print ("could not verify feed sync has completed - exception: {}".format(err))
     sys.exit(1)

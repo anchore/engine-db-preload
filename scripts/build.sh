@@ -129,14 +129,24 @@ build_images() {
     if [[ "$build_version" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             compose_up_anchore_engine "$version"
-            scripts/feed_sync_wait.py 360 60
+            if ! scripts/feed_sync_wait.py 30 60; then
+                compose_down_anchore_engine
+                export COMPOSE_DB_IMAGE="postgres:9"
+                compose_up_anchore_engine "$version"
+                scripts/feed_sync_wait.py 150 60
+            fi
             compose_down_anchore_engine
             docker build -t "${IMAGE_REPO}:dev" .
             docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
         done 
     else
         compose_up_anchore_engine "$build_version"
-        scripts/feed_sync_wait.py 360 60
+        if ! scripts/feed_sync_wait.py 30 60; then
+            compose_down_anchore_engine
+            export COMPOSE_DB_IMAGE="postgres:9"
+            compose_up_anchore_engine "$version"
+            scripts/feed_sync_wait.py 150 60
+        fi
         compose_down_anchore_engine
         docker build -t "${IMAGE_REPO}:dev" .
         docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
@@ -208,17 +218,16 @@ compose_down_anchore_engine() {
 
 compose_up_anchore_engine() {
     local anchore_version="$1"
-    # If the image/tag exists on DockerHub & $COMPOSE_DB_IMAGE is not set - build new image using DB from existing image
-    if [[ "${COMPOSE_DB_IMAGE:-false}" == false ]] && docker pull "${IMAGE_REPO}:${anchore_version}" &> /dev/null; then
-        COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${anchore_version}")
-    fi
     # set default values using := notation if COMPOSE vars aren't already set
     if [[ "$anchore_version" == 'dev' ]]; then
         export COMPOSE_DB_IMAGE=${COMPOSE_DB_IMAGE:="docker.io/anchore/engine-db-preload:latest"}
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine-dev:latest"}
     else
+        # If the image/tag exists on DockerHub & $COMPOSE_DB_IMAGE is not set - build new image using DB from existing image
+        if [[ "${COMPOSE_DB_IMAGE:-false}" == false ]] && docker pull "${IMAGE_REPO}:${anchore_version}" &> /dev/null; then
+            export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${anchore_version}")
+        fi
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:=$(eval echo "docker.io/anchore/anchore-engine:${anchore_version}")}
-        export COMPOSE_DB_IMAGE=${COMPOSE_DB_IMAGE:="docker.io/postgres:9"}
     fi
     echo "COMPOSE_ENGINE_IMAGE=$COMPOSE_ENGINE_IMAGE"
     echo "COMPOSE_DB_IMAGE=$COMPOSE_DB_IMAGE"
@@ -389,7 +398,7 @@ set_environment_variables
 # Trap all bash commands & print to screen. Like using set -v but allows printing in color
 trap 'printf "%s+ %s%s\n" "${color_cyan}" "$BASH_COMMAND" "${color_normal}" >&2' DEBUG
 
-# If no params are passed to script, build the image
+# Run script with the 'build' param to build the image
 # Run script with the 'test' param to execute the full pipeline locally
 # Run script with the 'ci' param to execute a fully mocked CircleCI pipeline, running in docker
 # If first param is a valid function name, execute the function & pass all following params to function
