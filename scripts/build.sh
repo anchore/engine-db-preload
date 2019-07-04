@@ -221,15 +221,14 @@ compose_up_anchore_engine() {
     # set default values using := notation if COMPOSE vars aren't already set
     if [[ "$anchore_version" == 'dev' ]]; then
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine-dev:latest"}
-        export COMPOSE_DB_IMAGE=${COMPOSE_DB_IMAGE:="docker.io/anchore/engine-db-preload:latest"}
     else
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:=$(eval echo "docker.io/anchore/anchore-engine:${anchore_version}")}
-        # If the image/tag exists on DockerHub & $COMPOSE_DB_IMAGE is not set - build new image using DB from existing image
-        if [[ "${COMPOSE_DB_IMAGE:-false}" == false ]] && docker pull "${IMAGE_REPO}:${anchore_version}" &> /dev/null; then
-            export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${anchore_version}")
-        else
-            export COMPOSE_DB_IMAGE="postgres:9"
-        fi
+    fi
+    # If the image/tag exists on DockerHub & $COMPOSE_DB_IMAGE is not set - build new image using DB from existing image
+    if [[ "${COMPOSE_DB_IMAGE:-false}" == false ]] && docker pull "${IMAGE_REPO}:${anchore_version}" &> /dev/null; then
+        export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${anchore_version}")
+    else
+        export COMPOSE_DB_IMAGE="docker.io/anchore/engine-db-preload:latest"
     fi
     echo "COMPOSE_ENGINE_IMAGE=$COMPOSE_ENGINE_IMAGE"
     echo "COMPOSE_DB_IMAGE=$COMPOSE_DB_IMAGE"
