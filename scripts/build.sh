@@ -228,7 +228,7 @@ compose_up_anchore_engine() {
     if [[ "${COMPOSE_DB_IMAGE:-false}" == false ]] && docker pull "${IMAGE_REPO}:${anchore_version}" &> /dev/null; then
         export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:${anchore_version}")
     else
-        export COMPOSE_DB_IMAGE="docker.io/anchore/engine-db-preload:latest"
+        export COMPOSE_DB_IMAGE=${COMPOSE_DB_IMAGE:="docker.io/anchore/engine-db-preload:latest"}
     fi
     echo "COMPOSE_ENGINE_IMAGE=$COMPOSE_ENGINE_IMAGE"
     echo "COMPOSE_DB_IMAGE=$COMPOSE_DB_IMAGE"
