@@ -2,7 +2,7 @@
 
 # Fail on any errors, including in pipelines
 # Don't allow unset variables. Trace all functions with DEBUG trap
-set -euo pipefail -o functrace
+set -eo pipefail -o functrace
 
 display_usage() {
     echo "${color_yellow}"
