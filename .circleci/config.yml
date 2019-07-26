@@ -53,7 +53,7 @@ jobs:
           name: Push to DockerHub
           command: scripts/build.sh push_all_versions dev
 
-  build_v0.3.3_image:
+  build_v033_image:
     docker:
       - image: circleci/python:3.6
     steps:
@@ -71,7 +71,7 @@ jobs:
           paths:
             - caches/*
   
-  build_v0.3.4_image:
+  build_v034_image:
     docker:
       - image: circleci/python:3.6
     steps:
@@ -89,7 +89,7 @@ jobs:
           paths:
             - caches/*
 
-  build_v0.4.0_image:
+  build_v040_image:
     docker:
       - image: circleci/python:3.6
     steps:
@@ -107,7 +107,7 @@ jobs:
           paths:
             - caches/*
   
-  build_v0.4.1_image:
+  build_v041_image:
     docker:
       - image: circleci/python:3.6
     steps:
@@ -168,16 +168,16 @@ workflows:
               only:
                 - master
     jobs:
-      - build_v0.3.3_image
-      - build_v0.3.4_image
-      - build_v0.4.0_image
-      - build_v0.4.1_image
+      - build_v033_image
+      - build_v034_image
+      - build_v040_image
+      - build_v041_image
       - run_tests:
           requires:
-            - build_v0.3.3_image
-            - build_v0.3.4_image
-            - build_v0.4.0_image
-            - build_v0.4.1_image
+            - build_v033_image
+            - build_v034_image
+            - build_v040_image
+            - build_v041_image
       - push_dockerhub:
           context: dockerhub
           requires:
