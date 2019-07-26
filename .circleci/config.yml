@@ -31,7 +31,7 @@ jobs:
           paths:
             - caches/*
 
-    run_dev_tests:
+  run_dev_tests:
     docker:
       - image: circleci/python:3.6
     steps:
