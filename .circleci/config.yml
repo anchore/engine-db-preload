@@ -157,7 +157,7 @@ workflows:
       - push_dev_dockerhub:
           context: dockerhub
           requires:
-            - run_tests
+            - run_dev_tests
   
   nightly_build:
     triggers:
