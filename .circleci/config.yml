@@ -169,9 +169,13 @@ workflows:
                 - master
     jobs:
       - build_v033_image
-      - build_v034_image
+      - build_v034_image:
+          requires:
+            - build_v033_image
       - build_v040_image
-      - build_v041_image
+      - build_v041_image:
+          requires:
+            - build_v040_image
       - run_tests:
           requires:
             - build_v033_image

@@ -133,7 +133,7 @@ build_images() {
                 compose_down_anchore_engine
                 export COMPOSE_DB_IMAGE="postgres:9"
                 compose_up_anchore_engine "$version"
-                scripts/feed_sync_wait.py 150 60
+                scripts/feed_sync_wait.py 300 60
             fi
             compose_down_anchore_engine
             docker build -t "${IMAGE_REPO}:dev" .
@@ -145,7 +145,7 @@ build_images() {
             compose_down_anchore_engine
             export COMPOSE_DB_IMAGE="postgres:9"
             compose_up_anchore_engine "$build_version"
-            scripts/feed_sync_wait.py 150 60
+            scripts/feed_sync_wait.py 300 60
         fi
         compose_down_anchore_engine
         docker build -t "${IMAGE_REPO}:dev" .
