@@ -53,7 +53,7 @@ jobs:
           name: Push to DockerHub
           command: scripts/build.sh push_all_versions dev
 
-  build_v033_image:
+  build_v042_image:
     docker:
       - image: circleci/python:3.6
     steps:
@@ -62,10 +62,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.3.3
+          command: scripts/build.sh build_images v0.4.2
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images v0.3.3
+          command: scripts/build.sh save_images v0.4.2
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -168,16 +168,16 @@ workflows:
               only:
                 - master
     jobs:
-      - build_v033_image
       - build_v034_image
       - build_v040_image
       - build_v041_image
+      - build_v042_image
       - run_tests:
           requires:
-            - build_v033_image
             - build_v034_image
             - build_v040_image
             - build_v041_image
+            - build_v042_image
       - push_dockerhub:
           context: dockerhub
           requires:
