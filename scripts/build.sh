@@ -68,6 +68,10 @@ build() {
     build_images
 }
 
+build_dev() {
+    build_images dev
+}
+
 # The cleanup() function that runs whenever the script exits
 cleanup() {
     ret="$?"
@@ -220,7 +224,7 @@ compose_up_anchore_engine() {
     local anchore_version="$1"
     # set default values using := notation if COMPOSE vars aren't already set
     if [[ "$anchore_version" == 'dev' ]]; then
-        export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine-dev:latest"}
+        export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine:dev"}
     else
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:=$(eval echo "docker.io/anchore/anchore-engine:${anchore_version}")}
     fi
