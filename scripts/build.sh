@@ -145,7 +145,11 @@ build_images() {
         done 
     else
         compose_up_anchore_engine "$build_version"
-        if ! scripts/feed_sync_wait.py 30 60; then
+        if [[ "$f_flag" == true ]]; then
+            export COMPOSE_DB_IMAGE="postgres:9"
+            compose_up_anchore_engine "$build_version"
+            scripts/feed_sync_wait.py 300 60
+        elif ! scripts/feed_sync_wait.py 30 60; then
             compose_down_anchore_engine
             export COMPOSE_DB_IMAGE="postgres:9"
             compose_up_anchore_engine "$build_version"
@@ -373,6 +377,16 @@ setup_build_environment() {
 ###   MAIN PROGRAM BOOTSTRAP LOGIC   ###
 ########################################
 
+while getopts ':fh' option; do
+    case "${option}" in
+        f  ) f_flag=true;;
+        h  ) display_usage; exit;;
+        \? ) printf "\n\t%s\n\n" "Invalid option: -${OPTARG}" >&2; display_usage >&2; exit 1;;
+        :  ) printf "\n\t%s\n\n%s\n\n" "Option -${OPTARG} requires an argument." >&2; display_usage >&2; exit 1;;
+    esac
+done
+shift "$((OPTIND - 1))"
+
 # Save current working directory for cleanup on exit
 pushd . &> /dev/null
 
@@ -412,7 +426,9 @@ if [[ "$#" -eq 0 ]]; then
     exit 1
 elif [[ "$1" == 'build' ]];then
     build
-elif [[ "$1" == 'dev' ]];then
+elif [[ "$1" == 'build_dev' ]];then
+    build_dev
+elif [[ "$1" == 'dev' ]]; then
     dev_test
 elif [[ "$1" == 'test' ]]; then
     main

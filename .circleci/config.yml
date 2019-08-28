@@ -22,7 +22,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images dev
+          command: scripts/build.sh -f build_dev
       - run:
           name: Save image to workspace
           command: scripts/build.sh save_images dev
