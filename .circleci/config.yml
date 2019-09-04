@@ -22,7 +22,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh -f build_dev
+          command: scripts/build.sh -f build dev
       - run:
           name: Save image to workspace
           command: scripts/build.sh save_images dev
@@ -52,42 +52,6 @@ jobs:
       - run:
           name: Push to DockerHub
           command: scripts/build.sh push_all_versions dev
-
-  build_v042_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
-      - run:
-          name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.4.2
-      - run:
-          name: Save image to workspace
-          command: scripts/build.sh save_images v0.4.2
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
-  
-  build_v034_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
-      - run:
-          name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.3.4
-      - run:
-          name: Save image to workspace
-          command: scripts/build.sh save_images v0.3.4
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
 
   build_v040_image:
     docker:
@@ -120,6 +84,42 @@ jobs:
       - run:
           name: Save image to workspace
           command: scripts/build.sh save_images v0.4.1
+      - persist_to_workspace:
+          root: /home/circleci/workspace/
+          paths:
+            - caches/*
+
+  build_v042_image:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - setup_remote_docker
+      - checkout
+      - <<: *attach_workspace
+      - run:
+          name: Setup Anchore Engine, Sync Feeds & Build Image
+          command: scripts/build.sh build_images v0.4.2
+      - run:
+          name: Save image to workspace
+          command: scripts/build.sh save_images v0.4.2
+      - persist_to_workspace:
+          root: /home/circleci/workspace/
+          paths:
+            - caches/*
+
+  build_v050_image:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - setup_remote_docker
+      - checkout
+      - <<: *attach_workspace
+      - run:
+          name: Setup Anchore Engine, Sync Feeds & Build Image
+          command: scripts/build.sh build_images v0.5.0
+      - run:
+          name: Save image to workspace
+          command: scripts/build.sh save_images v0.5.0
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -168,16 +168,16 @@ workflows:
               only:
                 - master
     jobs:
-      - build_v034_image
       - build_v040_image
       - build_v041_image
       - build_v042_image
+      - build_v050_image
       - run_tests:
           requires:
-            - build_v034_image
             - build_v040_image
             - build_v041_image
             - build_v042_image
+            - build_v050_image
       - push_dockerhub:
           context: dockerhub
           requires:

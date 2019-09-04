@@ -91,7 +91,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
             raise Exception("timed out waiting for feeds to sync after {} seconds".format(timeout))
 
 def wait_for_feed_sync(user='admin', pw='foobar', timeout=300, url="http://localhost:8228/v1"):
-    cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities,nvd'.format(user, pw, url, timeout)
+    cmd = 'anchore-cli --u {} --p {} --url {} system wait --timeout {} --feedsready vulnerabilities'.format(user, pw, url, timeout)
     try:
         for line in execute(cmd.split()):
             print(line, end="")
