@@ -22,10 +22,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh -f build dev
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh -f build dev
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images dev
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh save_images dev
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -40,7 +40,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Docker Compose & Run Tests
-          command: scripts/build.sh test_built_images dev
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh test_built_images dev
 
   push_dev_dockerhub:
     docker:
@@ -51,7 +51,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Push to DockerHub
-          command: scripts/build.sh push_all_versions dev
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh push_all_versions dev
 
   build_v040_image:
     docker:
@@ -62,10 +62,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.4.0
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh build_images v0.4.0
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images v0.4.0
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh save_images v0.4.0
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -80,10 +80,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.4.1
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh build_images v0.4.1
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images v0.4.1
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh save_images v0.4.1
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -98,10 +98,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.4.2
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh build_images v0.4.2
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images v0.4.2
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh save_images v0.4.2
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -116,10 +116,10 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.5.0
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh build_images v0.5.0
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images v0.5.0
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh save_images v0.5.0
       - persist_to_workspace:
           root: /home/circleci/workspace/
           paths:
@@ -134,7 +134,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Docker Compose & Run Tests
-          command: scripts/build.sh test_built_images
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh test_built_images
 
   push_dockerhub:
     docker:
@@ -145,7 +145,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Push to DockerHub
-          command: scripts/build.sh push_all_versions
+          command: ${CIRCLE_WORKING_DIRECTORY}/scripts/build.sh push_all_versions
 
 workflows:
   default_workflow:
