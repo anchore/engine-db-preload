@@ -339,7 +339,7 @@ install_dependencies() {
 }
 
 run_tests() {
-    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities,nvd"
+    anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system wait --feedsready "vulnerabilities"
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system status
     anchore-cli --u admin --p foobar --url http://localhost:8228/v1 system feeds list
     # Don't clone anchore-engine if it already exists
