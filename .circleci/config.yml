@@ -22,7 +22,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh -f build dev
+          command: scripts/build.sh -s build dev
       - run:
           name: Save image to workspace
           command: scripts/build.sh save_images dev
@@ -40,7 +40,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Docker Compose & Run Tests
-          command: scripts/build.sh test_built_images dev
+          command: scripts/build.sh -s test_built_images dev
 
   push_dev_dockerhub:
     docker:
@@ -51,7 +51,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Push to DockerHub
-          command: scripts/build.sh push_all_versions dev
+          command: scripts/build.sh -s push_all_versions dev
 
   build_v041_image:
     docker:
@@ -125,6 +125,25 @@ jobs:
           paths:
             - caches/*
 
+  build_test_push_v051_slim_image:
+    docker:
+      - image: circleci/python:3.6
+    steps:
+      - setup_remote_docker
+      - checkout
+      - run:
+          name: Build, test and push slim image
+          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s build_images v0.5.1
+      - run:
+          name: Save image to workspace
+          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s save_images v0.5.1
+      - run:
+          name: Test image
+          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s test_built_images v0.5.1
+      - run: 
+          name: Push image
+          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s push_all_versions v0.5.1
+
   run_tests:
     docker:
       - image: circleci/python:3.6
@@ -168,6 +187,7 @@ workflows:
               only:
                 - master
     jobs:
+      - build_test_push_v051_slim_image
       - build_v041_image
       - build_v042_image
       - build_v050_image
