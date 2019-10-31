@@ -153,7 +153,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Docker Compose & Run Tests
-          command: scripts/build.sh test_built_images
+          command: scripts/build.sh test_built_images all
 
   push_dockerhub:
     docker:
@@ -164,7 +164,7 @@ jobs:
       - <<: *attach_workspace
       - run:
           name: Push to DockerHub
-          command: scripts/build.sh push_all_versions
+          command: scripts/build.sh push_all_versions all
 
 workflows:
   default_workflow:
