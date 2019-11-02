@@ -372,7 +372,7 @@ ci_test_job() {
 
 load_image() {
     local anchore_version="$1"
-    docker load -i "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar"
+    docker load -i "${WORKSPACE}/caches/${IMAGE_REPO##*/}-${anchore_version}-dev.tar"
 }
 
 push_dockerhub() {
@@ -402,7 +402,7 @@ push_dockerhub() {
 save_image() {
     local anchore_version="$1"
     mkdir -p "${WORKSPACE}/caches"
-    docker save -o "${WORKSPACE}/caches/${PROJECT_REPONAME}-${anchore_version}-dev.tar" "${IMAGE_REPO}:dev-${anchore_version}"
+    docker save -o "${WORKSPACE}/caches/${IMAGE_REPO##*/}-${anchore_version}-dev.tar" "${IMAGE_REPO}:dev-${anchore_version}"
 }
 
 setup_and_print_env_vars() {
