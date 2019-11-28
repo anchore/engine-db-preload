@@ -136,7 +136,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
     start_ts = time.time()
     while not popen.poll():
         try:
-            r = requests.get(feed_sync_url, auth=('admin', 'foobar'), verify=False, timeout=20)
+            r = requests.get(feed_sync_url, auth=('admin', 'foobar'), verify=False, timeout=120)
             if r.status_code == 200:
                 data = json.loads(r.text)
                 synced = 0
