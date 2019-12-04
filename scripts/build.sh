@@ -186,7 +186,7 @@ build_images() {
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             compose_up_anchore_engine "${version}"
-            if ! scripts/feed_sync_wait.py ${feed_sync_opts} 30 60; then
+            if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
                 compose_down_anchore_engine
                 export COMPOSE_DB_IMAGE="postgres:9"
                 compose_up_anchore_engine "${version}"
