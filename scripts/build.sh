@@ -201,7 +201,7 @@ build_images() {
         if [[ "${FORCE_FRESH_SYNC}" == 'true' ]]; then
             scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
         else
-            if ! scripts/feed_sync_wait.py ${feed_sync_opts} 30 60; then
+            if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
                 compose_down_anchore_engine
                 export COMPOSE_DB_IMAGE="postgres:9"
                 compose_up_anchore_engine "${build_version}"
