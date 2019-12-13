@@ -380,7 +380,7 @@ push_dockerhub() {
     if [[ "${CI}" == true ]]; then
         echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
     fi
-    if [[ "${GIT_BRANCH}" == 'master' ]] && [[ "${CI}" == true ]] && [[ ! "${anchore_version}" == 'dev' ]]; then
+    if [[ "${GIT_BRANCH}" == 'master' || -n "${CIRCLE_TAG}" ]] && [[ "${CI}" == true ]] && [[ ! "${anchore_version}" == 'dev' ]]; then
         docker tag "${IMAGE_REPO}:dev-${anchore_version}" "${IMAGE_REPO}:${anchore_version}"
         echo "Pushing to DockerHub - ${IMAGE_REPO}:${anchore_version}"
         docker push "${IMAGE_REPO}:${anchore_version}"
