@@ -10,6 +10,12 @@
   attach_workspace:
       at: /home/circleci/workspace
 
+.filter_semver_tags: &filter_semver_tags
+  branches:
+    ignore: /.*/
+  tags:
+    only: /^v[0-9]+(\.[0-9]+)*$/
+
 # Start circleci configuration
 version: 2.1
 jobs:
@@ -215,7 +221,41 @@ workflows:
           context: dockerhub
           requires:
             - run_dev_tests
-  
+
+  tagged_build_all:
+    jobs:
+      - build_test_push_v051_slim_image:
+          name: build_test_push_v051_slim_image
+          filters: *filter_semver_tags
+      - build_test_push_v052_slim_image:
+          name: build_test_push_v052_slim_image
+          filters: *filter_semver_tags
+      - build_test_push_v060_slim_image:
+          name: build_test_push_v060_slim_image
+          filters: *filter_semver_tags
+      - build_v050_image:
+          name: build_v050_image
+          filters: *filter_semver_tags
+      - build_v051_image:
+          name: build_v051_image
+          filters: *filter_semver_tags
+      - build_v052_image:
+          name: build_v052_image
+          filters: *filter_semver_tags
+      - build_v060_image:
+          name: build_v060_image
+          filters: *filter_semver_tags
+      - run_tests:
+          requires:
+            - build_v050_image
+            - build_v051_image
+            - build_v052_image
+            - build_v060_image
+      - push_dockerhub:
+          context: dockerhub
+          requires:
+            - run_tests
+
   nightly_build:
     triggers:
       - schedule:
