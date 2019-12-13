@@ -1,3 +1,3 @@
-from postgres:9
+FROM postgres:9
 
 COPY ./anchore-bootstrap.sql.gz /docker-entrypoint-initdb.d/
