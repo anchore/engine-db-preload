@@ -225,25 +225,18 @@ workflows:
   tagged_build_all:
     jobs:
       - build_test_push_v051_slim_image:
-          name: build_test_push_v051_slim_image
           filters: *filter_semver_tags
       - build_test_push_v052_slim_image:
-          name: build_test_push_v052_slim_image
           filters: *filter_semver_tags
       - build_test_push_v060_slim_image:
-          name: build_test_push_v060_slim_image
           filters: *filter_semver_tags
       - build_v050_image:
-          name: build_v050_image
           filters: *filter_semver_tags
       - build_v051_image:
-          name: build_v051_image
           filters: *filter_semver_tags
       - build_v052_image:
-          name: build_v052_image
           filters: *filter_semver_tags
       - build_v060_image:
-          name: build_v060_image
           filters: *filter_semver_tags
       - run_tests:
           requires:
@@ -251,10 +244,12 @@ workflows:
             - build_v051_image
             - build_v052_image
             - build_v060_image
+          filters: *filter_semver_tags
       - push_dockerhub:
           context: dockerhub
           requires:
             - run_tests
+          filters: *filter_semver_tags
 
   nightly_build:
     triggers:
