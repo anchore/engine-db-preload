@@ -6,10 +6,6 @@
 #   - $IMAGE_NAME = anchore/engine-db-preload
 #
 # Define YAML anchors
-.attach_workspace: &attach_workspace
-  attach_workspace:
-      at: /home/circleci/workspace
-
 .filter_semver_tags: &filter_semver_tags
   branches:
     ignore: /.*/
@@ -19,236 +15,77 @@
 # Start circleci configuration
 version: 2.1
 jobs:
-  build_dev_image:
+  build_test_push_preload_image:
+    parameters:
+      anchore_version: 
+        default: ""
+        type: string
     docker:
       - image: circleci/python:3.6
     steps:
       - setup_remote_docker
       - checkout
-      - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh -s build dev
+          command: scripts/build.sh build << parameters.anchore_version >>
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images dev
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
-
-  run_dev_tests:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
+          command: scripts/build.sh save_images << parameters.anchore_version >>
       - run:
           name: Docker Compose & Run Tests
-          command: scripts/build.sh -s test_built_images dev
-
-  push_dev_dockerhub:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
+          command: scripts/build.sh test_built_images << parameters.anchore_version >>
       - run:
           name: Push to DockerHub
-          command: scripts/build.sh -s push_all_versions dev
+          command: scripts/build.sh push_all_versions << parameters.anchore_version >>
 
-  build_v050_image:
+  build_test_push_slim_preload_image:
+    parameters:
+      anchore_version: 
+        default: ""
+        type: string
     docker:
       - image: circleci/python:3.6
+    environment:
+      IMAGE_REPO: docker.io/anchore/engine-db-preload-slim
     steps:
       - setup_remote_docker
       - checkout
-      - <<: *attach_workspace
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.5.0
+          command: scripts/build.sh -s build << parameters.anchore_version >>
       - run:
           name: Save image to workspace
-          command: scripts/build.sh save_images v0.5.0
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
-
-  build_v051_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
-      - run:
-          name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.5.1
-      - run:
-          name: Save image to workspace
-          command: scripts/build.sh save_images v0.5.1
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
-
-  build_v052_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
-      - run:
-          name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.5.2
-      - run:
-          name: Save image to workspace
-          command: scripts/build.sh save_images v0.5.2
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
-
-  build_v060_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
-      - run:
-          name: Setup Anchore Engine, Sync Feeds & Build Image
-          command: scripts/build.sh build_images v0.6.0
-      - run:
-          name: Save image to workspace
-          command: scripts/build.sh save_images v0.6.0
-      - persist_to_workspace:
-          root: /home/circleci/workspace/
-          paths:
-            - caches/*
-
-  build_test_push_v051_slim_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - run:
-          name: Build, test and push slim image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s build_images v0.5.1
-      - run:
-          name: Save image to workspace
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s save_images v0.5.1
-      - run:
-          name: Test image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s test_built_images v0.5.1
-      - run: 
-          name: Push image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s push_all_versions v0.5.1
-
-  build_test_push_v052_slim_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - run:
-          name: Build, test and push slim image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s build_images v0.5.2
-      - run:
-          name: Save image to workspace
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s save_images v0.5.2
-      - run:
-          name: Test image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s test_built_images v0.5.2
-      - run: 
-          name: Push image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s push_all_versions v0.5.2
-
-  build_test_push_v060_slim_image:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - run:
-          name: Build, test and push slim image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s build_images v0.6.0
-      - run:
-          name: Save image to workspace
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s save_images v0.6.0
-      - run:
-          name: Test image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s test_built_images v0.6.0
-      - run: 
-          name: Push image
-          command: IMAGE_REPO=docker.io/anchore/engine-db-preload-slim scripts/build.sh -s push_all_versions v0.6.0
-
-  run_tests:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
+          command: scripts/build.sh -s save_images << parameters.anchore_version >>
       - run:
           name: Docker Compose & Run Tests
-          command: scripts/build.sh test_built_images all
-
-  push_dockerhub:
-    docker:
-      - image: circleci/python:3.6
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *attach_workspace
+          command: scripts/build.sh -s test_built_images << parameters.anchore_version >>
       - run:
           name: Push to DockerHub
-          command: scripts/build.sh push_all_versions all
+          command: scripts/build.sh -s push_all_versions << parameters.anchore_version >>
 
 workflows:
   default_workflow:
     jobs:
-      - build_dev_image
-      - run_dev_tests:
-          requires:
-            - build_dev_image
-      - push_dev_dockerhub:
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_dev
+          anchore_version: dev
           context: dockerhub
-          requires:
-            - run_dev_tests
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_dev
+          anchore_version: dev
+          context: dockerhub
 
   tagged_build_all:
     jobs:
-      - build_test_push_v051_slim_image:
-          filters: *filter_semver_tags
-      - build_test_push_v052_slim_image:
-          filters: *filter_semver_tags
-      - build_test_push_v060_slim_image:
-          filters: *filter_semver_tags
-      - build_v050_image:
-          filters: *filter_semver_tags
-      - build_v051_image:
-          filters: *filter_semver_tags
-      - build_v052_image:
-          filters: *filter_semver_tags
-      - build_v060_image:
-          filters: *filter_semver_tags
-      - run_tests:
-          requires:
-            - build_v050_image
-            - build_v051_image
-            - build_v052_image
-            - build_v060_image
-          filters: *filter_semver_tags
-      - push_dockerhub:
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_all
+          anchore_version: all
           context: dockerhub
-          requires:
-            - run_tests
+          filters: *filter_semver_tags
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_all
+          anchore_version: all
+          context: dockerhub
           filters: *filter_semver_tags
 
   nightly_build:
@@ -260,20 +97,35 @@ workflows:
               only:
                 - master
     jobs:
-      - build_test_push_v051_slim_image
-      - build_test_push_v052_slim_image
-      - build_test_push_v060_slim_image
-      - build_v050_image
-      - build_v051_image
-      - build_v052_image
-      - build_v060_image
-      - run_tests:
-          requires:
-            - build_v050_image
-            - build_v051_image
-            - build_v052_image
-            - build_v060_image
-      - push_dockerhub:
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_v051
+          anchore_version: v0.5.1
           context: dockerhub
-          requires:
-            - run_tests
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_v052
+          anchore_version: v0.5.2
+          context: dockerhub
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_v060
+          anchore_version: v0.6.0
+          context: dockerhub
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_v050
+          anchore_version: v0.5.0
+          context: dockerhub
+          filters: *filter_semver_tags
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_v051
+          anchore_version: v0.5.1
+          context: dockerhub
+          filters: *filter_semver_tags
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_v052
+          anchore_version: v0.5.2
+          context: dockerhub
+          filters: *filter_semver_tags
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_v060
+          anchore_version: v0.6.0
+          context: dockerhub
+          filters: *filter_semver_tags
