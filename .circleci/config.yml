@@ -20,11 +20,9 @@ jobs:
       anchore_version: 
         default: ""
         type: string
-    docker:
-      - image: circleci/python:3.6
-    resource_class: xlarge
+    machine: true
+    resource_class: large
     steps:
-      - setup_remote_docker
       - checkout
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
@@ -44,13 +42,11 @@ jobs:
       anchore_version: 
         default: ""
         type: string
-    docker:
-      - image: circleci/python:3.6
-    resource_class: xlarge
+    machine: true
+    resource_class: large
     environment:
       IMAGE_REPO: docker.io/anchore/engine-db-preload-slim
     steps:
-      - setup_remote_docker
       - checkout
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
