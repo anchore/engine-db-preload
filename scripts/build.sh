@@ -440,6 +440,10 @@ setup_build_environment() {
         mkdir -p "${WORKING_DIRECTORY}"
         cp -a . "${WORKING_DIRECTORY}"
     fi
+    # Setup python3 for machine runner
+    if [[ "${CI}" == true ]]; then
+        pyenv global 3.5.2
+    fi
     mkdir -p "${WORKSPACE}/caches"
     pushd "${WORKING_DIRECTORY}"
     install_dependencies || true
