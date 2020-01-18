@@ -27,15 +27,19 @@ jobs:
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
           command: scripts/build.sh build << parameters.anchore_version >>
+          no_output_timeout: 1h
       - run:
           name: Save image to workspace
           command: scripts/build.sh save_images << parameters.anchore_version >>
+          no_output_timeout: 1h
       - run:
           name: Docker Compose & Run Tests
           command: scripts/build.sh test_built_images << parameters.anchore_version >>
+          no_output_timeout: 1h
       - run:
           name: Push to DockerHub
           command: scripts/build.sh push_all_versions << parameters.anchore_version >>
+          no_output_timeout: 1h
 
   build_test_push_slim_preload_image:
     parameters:
@@ -51,15 +55,19 @@ jobs:
       - run:
           name: Setup Anchore Engine, Sync Feeds & Build Image
           command: scripts/build.sh -s build << parameters.anchore_version >>
+          no_output_timeout: 1h
       - run:
           name: Save image to workspace
           command: scripts/build.sh -s save_images << parameters.anchore_version >>
+          no_output_timeout: 1h
       - run:
           name: Docker Compose & Run Tests
           command: scripts/build.sh -s test_built_images << parameters.anchore_version >>
+          no_output_timeout: 1h
       - run:
           name: Push to DockerHub
           command: scripts/build.sh -s push_all_versions << parameters.anchore_version >>
+          no_output_timeout: 1h
 
 workflows:
   default_workflow:
