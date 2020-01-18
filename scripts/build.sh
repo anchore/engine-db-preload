@@ -332,9 +332,9 @@ install_dependencies() {
     cp -f ${WORKING_DIRECTORY}/config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     # Install dependencies to system on CircleCI & virtualenv locally
     if [[ "${CI}" == true ]]; then
-        sudo pip install --upgrade pip
-        sudo pip install --upgrade docker-compose
-        sudo pip install --upgrade anchorecli
+        pip install --upgrade pip
+        pip install --upgrade docker-compose
+        pip install --upgrade anchorecli
     else
         virtualenv .venv
         source .venv/bin/activate
