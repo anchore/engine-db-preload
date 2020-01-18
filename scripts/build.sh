@@ -268,13 +268,15 @@ push_all_versions() {
 compose_down_anchore_engine() {
     docker-compose down --volumes
     unset COMPOSE_DB_IMAGE COMPOSE_ENGINE_IMAGE
+    # For machine image on circleci no need to ssh to remote-docker
+    rm -rf "${WORKSPACE}/aevolume"
     # If running on circleCI kill forwarded socket to remote-docker
-    if [[ "${CI}" == true ]]; then
-        ssh -S anchore -O exit remote-docker
-        ssh remote-docker "sudo rm -rf ${WORKSPACE}/aevolume"
-    else
-        rm -rf "${WORKSPACE}/aevolume"
-    fi
+    # if [[ "${CI}" == true ]]; then
+    #     ssh -S anchore -O exit remote-docker
+    #     ssh remote-docker "sudo rm -rf ${WORKSPACE}/aevolume"
+    # else
+    #     rm -rf "${WORKSPACE}/aevolume"
+    # fi
 }
 
 compose_up_anchore_engine() {
@@ -298,25 +300,31 @@ compose_up_anchore_engine() {
     fi
     echo "COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE}"
     echo "COMPOSE_DB_IMAGE=${COMPOSE_DB_IMAGE}"
-    # If CircleCI build, create files/dirs on remote-docker
-    if [[ "$CI" == true ]]; then
-        ssh remote-docker "mkdir -p ${WORKSPACE}/aevolume/db ${WORKSPACE}/aevolume/config"
-        scp config/config.yaml remote-docker:"${WORKSPACE}/aevolume/config/config.yaml"
-        if [[ "$SLIM_BUILD" == "true" ]]; then
-            ssh remote-docker "sed -i 's/nvd: True/nvd: False/g' ${WORKSPACE}/aevolume/config/config.yaml"
-        fi
-    else
-        mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
-        cp -f config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
-        if [[ "${SLIM_BUILD}" == "true" ]]; then
-            sed -i 's/nvd: True/nvd: False/g' "${WORKSPACE}/aevolume/config/config.yaml"
-        fi
+    ##### When running on machine runner in circleci, no need for ssh remote-docker ####
+    mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
+    cp -f config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
+    if [[ "${SLIM_BUILD}" == "true" ]]; then
+        sed -i 's/nvd: True/nvd: False/g' "${WORKSPACE}/aevolume/config/config.yaml"
     fi
+    # If CircleCI build, create files/dirs on remote-docker
+    # if [[ "$CI" == true ]]; then
+    #     ssh remote-docker "mkdir -p ${WORKSPACE}/aevolume/db ${WORKSPACE}/aevolume/config"
+    #     scp config/config.yaml remote-docker:"${WORKSPACE}/aevolume/config/config.yaml"
+    #     if [[ "$SLIM_BUILD" == "true" ]]; then
+    #         ssh remote-docker "sed -i 's/nvd: True/nvd: False/g' ${WORKSPACE}/aevolume/config/config.yaml"
+    #     fi
+    # else
+    #     mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
+    #     cp -f config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
+    #     if [[ "${SLIM_BUILD}" == "true" ]]; then
+    #         sed -i 's/nvd: True/nvd: False/g' "${WORKSPACE}/aevolume/config/config.yaml"
+    #     fi
+    # fi
     docker-compose up -d
     # If job is running in circleci forward remote-docker:8228 to localhost:8228
-    if [[ "${CI}" == true ]]; then
-        ssh -MS anchore -fN4 -L 8228:localhost:8228 remote-docker
-    fi
+    # if [[ "${CI}" == true ]]; then
+    #     ssh -MS anchore -fN4 -L 8228:localhost:8228 remote-docker
+    # fi
 }
 
 install_dependencies() {
