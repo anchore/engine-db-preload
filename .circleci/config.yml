@@ -69,10 +69,12 @@ workflows:
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_dev
           anchore_version: dev
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_dev
           anchore_version: dev
+          resource_class: xlarge
           context: dockerhub
 
   tagged_build_all:
@@ -81,11 +83,13 @@ workflows:
           name: build_test_push_slim_preload_image_all
           anchore_version: all
           context: dockerhub
+          resource_class: xlarge
           filters: *filter_semver_tags
       - build_test_push_preload_image:
           name: build_test_push_preload_image_all
           anchore_version: all
           context: dockerhub
+          resource_class: xlarge
           filters: *filter_semver_tags
 
   nightly_build:
@@ -100,28 +104,35 @@ workflows:
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_v051
           anchore_version: v0.5.1
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_v052
           anchore_version: v0.5.2
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_v060
           anchore_version: v0.6.0
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v050
           anchore_version: v0.5.0
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v051
           anchore_version: v0.5.1
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v052
           anchore_version: v0.5.2
+          resource_class: xlarge
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v060
           anchore_version: v0.6.0
+          resource_class: xlarge
           context: dockerhub
