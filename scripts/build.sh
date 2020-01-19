@@ -269,7 +269,7 @@ compose_down_anchore_engine() {
     docker-compose down --volumes
     unset COMPOSE_DB_IMAGE COMPOSE_ENGINE_IMAGE
     # For machine image on circleci no need to ssh to remote-docker
-    rm -rf "${WORKSPACE}/aevolume"
+    rm -rf "${WORKSPACE}/aevolume" || sudo rm -rf "${WORKSPACE}/aevolume"
     # If running on circleCI kill forwarded socket to remote-docker
     # if [[ "${CI}" == true ]]; then
     #     ssh -S anchore -O exit remote-docker
