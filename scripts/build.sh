@@ -442,7 +442,6 @@ setup_build_environment() {
     fi
     # Setup python3 for machine runner
     if [[ "${CI}" == true ]]; then
-        pyenv install 3.6.3
         pyenv global 3.6.3
     fi
     mkdir -p "${WORKSPACE}/caches"
