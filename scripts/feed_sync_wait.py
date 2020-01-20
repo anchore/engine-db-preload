@@ -28,10 +28,10 @@ def parse_args():
     try:
         TIMEOUT=int(args.timeout)
         if TIMEOUT > 300:
-            TIMEOUT = int(300)
+            TIMEOUT = 300
         elif TIMEOUT < 5:
             TIMEOUT = 5
-    except:
+    except Exception:
         TIMEOUT=30
     try:
         INTERVAL=float(args.interval)
@@ -39,7 +39,7 @@ def parse_args():
             INTERVAL = 1.0
         elif INTERVAL > 60.0:
             INTERVAL = 60.0
-    except:
+    except Exception:
         INTERVAL=5
 
     if args.slim:
