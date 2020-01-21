@@ -28,10 +28,10 @@ def parse_args():
     try:
         TIMEOUT=int(args.timeout)
         if TIMEOUT > 300:
-            TIMEOUT = int(300)
+            TIMEOUT = 300
         elif TIMEOUT < 5:
             TIMEOUT = 5
-    except:
+    except Exception:
         TIMEOUT=30
     try:
         INTERVAL=float(args.interval)
@@ -39,7 +39,7 @@ def parse_args():
             INTERVAL = 1.0
         elif INTERVAL > 60.0:
             INTERVAL = 60.0
-    except:
+    except Exception:
         INTERVAL=5
 
     if args.slim:
@@ -124,7 +124,7 @@ def discover_anchore_ids():
 def execute(cmd):
     popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
     for stdout_line in iter(popen.stdout.readline, ""):
-        yield stdout_line 
+        yield stdout_line
     popen.stdout.close()
     return_code = popen.wait()
     if return_code:
@@ -165,7 +165,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
         except Exception as err:
             raise Exception("cannot contact engine yet for system feeds list status - exception: {}".format(err))
 
-        if not popen.returncode == None:
+        if popen.returncode is not None:
             if popen.returncode == 0:
                 return True
             else:
