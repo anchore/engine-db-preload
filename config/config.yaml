@@ -19,7 +19,7 @@ feeds:
     feeds:
       vulnerabilities: True
       packages: False
-      nvd: True
+      nvdv2: True
       snyk: False
   anonymous_user_username: anon@ancho.re
   anonymous_user_password: pbiU2RYZ2XrmYQ
