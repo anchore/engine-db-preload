@@ -304,7 +304,7 @@ compose_up_anchore_engine() {
     mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
     cp -f config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     if [[ "${SLIM_BUILD}" == "true" ]]; then
-        sed -i 's/nvd: True/nvd: False/g' "${WORKSPACE}/aevolume/config/config.yaml"
+        sed -i 's/nvdv2: True/nvdv2: False/g' "${WORKSPACE}/aevolume/config/config.yaml"
     fi
     # If CircleCI build, create files/dirs on remote-docker
     # if [[ "$CI" == true ]]; then

@@ -80,9 +80,9 @@ def main():
 
     # finally, run each of these commands in series to dump the database SQL, stop the containers, commit the DB container as a new image, and bring tear everything else down
     if SLIM_BUILD:
-        exclude_opts = ' '.join(['--exclude-table-data={}'.format(x) for x in ['anchore', 'users', 'services', 'leases', 'tasks', 'queues', 'queuemeta', 'queues', 'accounts', 'account_users', 'user_access_credentials', 'feed_data_nvdv2_vulnerabilities', 'feed_data_cpev2_vulnerabilities']])
+        exclude_opts = ' '.join(['--exclude-table-data={}'.format(x) for x in ['anchore', 'users', 'services', 'leases', 'tasks', 'events', 'queues', 'queuemeta', 'queues', 'accounts', 'account_users', 'user_access_credentials', 'feed_data_nvdv2_vulnerabilities', 'feed_data_cpev2_vulnerabilities']])
     else:
-        exclude_opts = ' '.join(['--exclude-table-data={}'.format(x) for x in ['anchore', 'users', 'services', 'leases', 'tasks', 'queues', 'queuemeta', 'queues', 'accounts', 'account_users', 'user_access_credentials']])
+        exclude_opts = ' '.join(['--exclude-table-data={}'.format(x) for x in ['anchore', 'users', 'services', 'leases', 'tasks', 'events', 'queues', 'queuemeta', 'queues', 'accounts', 'account_users', 'user_access_credentials']])
 
     final_prepop_container_image = "anchore/engine-db-preload:dev"
     cmds = [
