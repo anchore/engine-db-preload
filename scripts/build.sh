@@ -36,8 +36,8 @@ EOF
 ##############################################
 
 # Specify what versions to build & what version should get 'latest' tag
-export BUILD_VERSIONS=('v0.6.1' 'v0.6.0' 'v0.5.2' 'v0.5.1')
-export LATEST_VERSION='v0.6.1'
+export BUILD_VERSIONS=('v0.7.0' 'v0.6.1' 'v0.6.0' 'v0.5.2')
+export LATEST_VERSION='v0.7.0'
 
 # PROJECT_VARS are custom vars that are modified between projects
 # Expand all required ENV vars or set to default values with := variable substitution
@@ -281,8 +281,13 @@ compose_down_anchore_engine() {
 
 compose_up_anchore_engine() {
     local anchore_version="$1"
+
     # set default values using := notation if COMPOSE vars aren't already set
-    export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:=$(eval echo "docker.io/anchore/anchore-engine:${anchore_version}")}
+    if [[ "${anchore_version}" == "dev" ]]; then
+        export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine-dev:latest"}
+    else
+        export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:=$(eval echo "docker.io/anchore/anchore-engine:${anchore_version}")}
+    fi
 
     # If $COMPOSE_DB_IMAGE is not set, figure out what image to use
     if [[ -z "${COMPOSE_DB_IMAGE}" ]]; then

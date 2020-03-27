@@ -17,6 +17,7 @@ feeds:
   selective_sync:
     enabled: True
     feeds:
+      github: True
       vulnerabilities: True
       packages: False
       nvdv2: True
