@@ -21,7 +21,6 @@ feeds:
       vulnerabilities: True
       packages: False
       nvdv2: True
-      snyk: False
   anonymous_user_username: anon@ancho.re
   anonymous_user_password: pbiU2RYZ2XrmYQ
   url: 'https://ancho.re/v1/service/feeds'
