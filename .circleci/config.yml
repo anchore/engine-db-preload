@@ -104,10 +104,6 @@ workflows:
                 - master
     jobs:
       - build_test_push_slim_preload_image:
-          name: build_test_push_slim_preload_image_v060
-          anchore_version: v0.6.0
-          context: dockerhub
-      - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_v061
           anchore_version: v0.6.1
           context: dockerhub
@@ -123,9 +119,9 @@ workflows:
           name: build_test_push_slim_preload_image_v072
           anchore_version: v0.7.2
           context: dockerhub
-      - build_test_push_preload_image:
-          name: build_test_push_preload_image_v060
-          anchore_version: v0.6.0
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_v073
+          anchore_version: v0.7.3
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v061
@@ -142,4 +138,8 @@ workflows:
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v072
           anchore_version: v0.7.2
+          context: dockerhub
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_v073
+          anchore_version: v0.7.3
           context: dockerhub
