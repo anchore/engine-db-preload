@@ -177,7 +177,7 @@ cleanup() {
 
 build_images() {
     local build_version="$1"
-    setup_build_environment
+    setup_build_environment "${build_version}"
 
     if [[ "${SLIM_BUILD}" == 'true' ]]; then
         local feed_sync_opts="--slim"
@@ -216,7 +216,7 @@ build_images() {
 
 save_images() {
     local build_version="$1"
-    setup_build_environment
+    setup_build_environment "${build_version}"
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             save_image "${version}"
@@ -228,7 +228,7 @@ save_images() {
 
 test_built_images() {
     local build_version="$1"
-    setup_build_environment
+    setup_build_environment "${build_version}"
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             load_image "${version}"
@@ -248,7 +248,7 @@ test_built_images() {
 
 push_all_versions() {
     local build_version="$1"
-    setup_build_environment
+    setup_build_environment "${build_version}"
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
             load_image "${version}"
@@ -333,19 +333,20 @@ compose_up_anchore_engine() {
 }
 
 install_dependencies() {
+    local build_version="$1"
     mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
     cp -f ${WORKING_DIRECTORY}/config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     # Install dependencies to system on CircleCI & virtualenv locally
     if [[ "${CI}" == true ]]; then
         pip install --upgrade pip
         pip install --upgrade docker-compose
-        pip install --upgrade anchorecli
+        pip install --upgrade "anchorecli==${build_version}" --force-reinstall || pip install --upgrade anchorecli
     else
         virtualenv .venv
         source .venv/bin/activate
         pip install --upgrade pip
         pip install --upgrade docker-compose
-        pip install --upgrade anchorecli
+        pip install --upgrade "anchorecli==${build_version}" --force-reinstall || pip install --upgrade anchorecli
     fi
 }
 
@@ -440,6 +441,7 @@ setup_and_print_env_vars() {
 }
 
 setup_build_environment() {
+    local build_version="$1"
     # Copy source code to $WORKING_DIRECTORY for mounting to docker volume as working dir
     if [[ ! -d "${WORKING_DIRECTORY}" ]]; then
         mkdir -p "${WORKING_DIRECTORY}"
@@ -454,7 +456,7 @@ setup_build_environment() {
     fi
     mkdir -p "${WORKSPACE}/caches"
     pushd "${WORKING_DIRECTORY}"
-    install_dependencies || true
+    install_dependencies "${build_version}" || true
 }
 
 main "$@"
