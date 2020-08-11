@@ -177,7 +177,6 @@ cleanup() {
 
 build_images() {
     local build_version="$1"
-    setup_build_environment
 
     if [[ "${SLIM_BUILD}" == 'true' ]]; then
         local feed_sync_opts="--slim"
@@ -185,6 +184,7 @@ build_images() {
 
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
+            setup_build_environment "${version}"
             compose_up_anchore_engine "${version}"
             if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
                 compose_down_anchore_engine
@@ -197,6 +197,7 @@ build_images() {
             docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
         done 
     else
+        setup_build_environment "${build_version}"
         compose_up_anchore_engine "${build_version}"
         if [[ "${FORCE_FRESH_SYNC}" == 'true' ]]; then
             scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
@@ -216,21 +217,22 @@ build_images() {
 
 save_images() {
     local build_version="$1"
-    setup_build_environment
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
+            setup_build_environment "${version}"
             save_image "${version}"
         done
     else
+        setup_build_environment "${build_version}"
         save_image "${build_version}"
     fi
 }
 
 test_built_images() {
     local build_version="$1"
-    setup_build_environment
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
+            setup_build_environment "${version}"
             load_image "${version}"
             export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:dev-${version}")
             compose_up_anchore_engine "${version}"
@@ -238,6 +240,7 @@ test_built_images() {
             compose_down_anchore_engine
         done
     else
+        setup_build_environment "${build_version}"
         load_image "${build_version}"
         export COMPOSE_DB_IMAGE=$(eval echo "${IMAGE_REPO}:dev-${build_version}")
         compose_up_anchore_engine "${build_version}"
@@ -248,13 +251,14 @@ test_built_images() {
 
 push_all_versions() {
     local build_version="$1"
-    setup_build_environment
     if [[ "${build_version}" == 'all' ]]; then
         for version in "${BUILD_VERSIONS[@]}"; do
+            setup_build_environment "${version}"
             load_image "${version}"
             push_dockerhub "${version}"
         done
     else
+        setup_build_environment "${build_version}"
         load_image "${build_version}"
         push_dockerhub "${build_version}"
     fi
@@ -333,19 +337,20 @@ compose_up_anchore_engine() {
 }
 
 install_dependencies() {
+    local build_version="$1"
     mkdir -p "${WORKSPACE}/aevolume/db" "${WORKSPACE}/aevolume/config"
     cp -f ${WORKING_DIRECTORY}/config/config.yaml "${WORKSPACE}/aevolume/config/config.yaml"
     # Install dependencies to system on CircleCI & virtualenv locally
     if [[ "${CI}" == true ]]; then
         pip install --upgrade pip
         pip install --upgrade docker-compose
-        pip install --upgrade anchorecli
+        pip install --upgrade "anchorecli==${build_version}" --force-reinstall || pip install --upgrade anchorecli
     else
         virtualenv .venv
         source .venv/bin/activate
         pip install --upgrade pip
         pip install --upgrade docker-compose
-        pip install --upgrade anchorecli
+        pip install --upgrade "anchorecli==${build_version}" --force-reinstall || pip install --upgrade anchorecli
     fi
 }
 
@@ -440,6 +445,7 @@ setup_and_print_env_vars() {
 }
 
 setup_build_environment() {
+    local build_version="$1"
     # Copy source code to $WORKING_DIRECTORY for mounting to docker volume as working dir
     if [[ ! -d "${WORKING_DIRECTORY}" ]]; then
         mkdir -p "${WORKING_DIRECTORY}"
@@ -454,7 +460,7 @@ setup_build_environment() {
     fi
     mkdir -p "${WORKSPACE}/caches"
     pushd "${WORKING_DIRECTORY}"
-    install_dependencies || true
+    install_dependencies "${build_version}" || true
 }
 
 main "$@"
