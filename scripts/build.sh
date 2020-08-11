@@ -344,13 +344,13 @@ install_dependencies() {
     if [[ "${CI}" == true ]]; then
         pip install --upgrade pip
         pip install --upgrade docker-compose
-        pip install --upgrade "anchorecli==${build_version}" --force-reinstall || pip install --upgrade anchorecli
+        pip install --upgrade "anchorecli==${build_version%.*}" --force-reinstall || pip install --upgrade anchorecli
     else
         virtualenv .venv
         source .venv/bin/activate
         pip install --upgrade pip
         pip install --upgrade docker-compose
-        pip install --upgrade "anchorecli==${build_version}" --force-reinstall || pip install --upgrade anchorecli
+        pip install --upgrade "anchorecli==${build_version%.*}" --force-reinstall || pip install --upgrade anchorecli
     fi
 }
 
