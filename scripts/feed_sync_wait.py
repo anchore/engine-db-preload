@@ -27,8 +27,8 @@ def parse_args():
 
     try:
         TIMEOUT=int(args.timeout)
-        if TIMEOUT > 300:
-            TIMEOUT = 300
+        if TIMEOUT > 900:
+            TIMEOUT = 900
         elif TIMEOUT < 5:
             TIMEOUT = 5
     except Exception:

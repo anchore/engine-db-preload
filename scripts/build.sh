@@ -36,7 +36,7 @@ EOF
 ##############################################
 
 # Specify what versions to build & what version should get 'latest' tag
-export BUILD_VERSIONS=('v0.8.2' 'v0.8.1' 'v0.8.0' 'v0.7.3' 'v0.7.2')
+export BUILD_VERSIONS=('v0.8.2' 'v0.8.1' 'v0.8.0' 'v0.7.3' 'v0.7.2' 'issue-712')
 export LATEST_VERSION='v0.8.2'
 
 # PROJECT_VARS are custom vars that are modified between projects
@@ -289,6 +289,8 @@ compose_up_anchore_engine() {
     # set default values using := notation if COMPOSE vars aren't already set
     if [[ "${anchore_version}" == "dev" ]]; then
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine-dev:latest"}
+    elif [[ "${anchore_version}" == "issue-712" ]]; then
+        export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:="docker.io/anchore/anchore-engine-dev:issue-712"}
     else
         export COMPOSE_ENGINE_IMAGE=${COMPOSE_ENGINE_IMAGE:=$(eval echo "docker.io/anchore/anchore-engine:${anchore_version}")}
     fi
