@@ -186,12 +186,15 @@ build_images() {
         for version in "${BUILD_VERSIONS[@]}"; do
             setup_build_environment "${version}"
             compose_up_anchore_engine "${version}"
-            if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
-                compose_down_anchore_engine
-                export COMPOSE_DB_IMAGE="postgres:9"
-                compose_up_anchore_engine "${version}"
-                scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
-            fi
+            scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
+            # If incrementals fail after 120 minutes, run a full sync
+            #
+            # if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
+            #     compose_down_anchore_engine
+            #     export COMPOSE_DB_IMAGE="postgres:9"
+            #     compose_up_anchore_engine "${version}"
+            #     scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
+            # fi
             compose_down_anchore_engine
             docker build -t "${IMAGE_REPO}:dev" .
             docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${version}"
@@ -199,16 +202,19 @@ build_images() {
     else
         setup_build_environment "${build_version}"
         compose_up_anchore_engine "${build_version}"
-        if [[ "${FORCE_FRESH_SYNC}" == 'true' ]]; then
-            scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
-        else
-            if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
-                compose_down_anchore_engine
-                export COMPOSE_DB_IMAGE="postgres:9"
-                compose_up_anchore_engine "${build_version}"
-                scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
-            fi
-        fi
+        scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
+        # If incrementals fail after 120 minutes, run a full sync
+        #
+        # if [[ "${FORCE_FRESH_SYNC}" == 'true' ]]; then
+        #     scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
+        # else
+        #     if ! scripts/feed_sync_wait.py ${feed_sync_opts} 120 60; then
+        #         compose_down_anchore_engine
+        #         export COMPOSE_DB_IMAGE="postgres:9"
+        #         compose_up_anchore_engine "${build_version}"
+        #         scripts/feed_sync_wait.py ${feed_sync_opts} 300 60
+        #     fi
+        # fi
         compose_down_anchore_engine
         docker build -t "${IMAGE_REPO}:dev" .
         docker tag "${IMAGE_REPO}:dev" "${IMAGE_REPO}:dev-${build_version}"
