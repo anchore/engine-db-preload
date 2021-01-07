@@ -147,7 +147,7 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
                     for group in sync_record.get('groups', []):
                         last_sync = group.get('last_sync', None)
                         if last_sync:
-                            last_sync_datetime = datetime.strptime(last_sync.replace('T',''), '%Y-%m-%d%H:%M:%S.%f')
+                            last_sync_datetime = datetime.strptime(last_sync.replace('T',''), '%Y-%m-%d%H:%M:%SZ')
                             if (datetime.utcnow() - last_sync_datetime) < timedelta(hours=12):
                                 synced = synced+1
                                 synced_names.append(group.get('name', ""))
