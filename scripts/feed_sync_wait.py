@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 from __future__ import print_function
-import argparse
-import shlex
-import json
-import requests
-import time
-import sys
-import subprocess
 from datetime import datetime, timedelta
+import argparse
+import json
+import re
+import requests
+import shlex
+import subprocess
+import sys
+import time
 
 TIMEOUT=int(30)
 INTERVAL=float(5.0)
@@ -147,7 +148,22 @@ def sync_feeds(timeout=300, user='admin', pw='foobar', feed_sync_url="http://loc
                     for group in sync_record.get('groups', []):
                         last_sync = group.get('last_sync', None)
                         if last_sync:
-                            last_sync_datetime = datetime.strptime(last_sync.replace('T',''), '%Y-%m-%d%H:%M:%SZ')
+                            # In order to tolerate RFC3339/ISO8601 datetime formats, and given our reasonable assumption
+                            # that our datetimes are *always* in UTC, we strip off anything after seconds and convert
+                            # the resulting string into a datetime.
+                            # REGEX explanation:
+                            # [0-9]{4}-[0-9]{2}-[0-9]{2}
+                            #   YYYY-MM-DD
+                            # T[0-9]{2}:[0-9]{2}:[0-9]{1,2}
+                            #   the character T, then HH:MM:SS (one or two seconds)
+                            # .*
+                            #   the rest of it (fractional seconds or Z or time offset in the form +/-HH:MM)
+                            # ( ... )
+                            #   capture and use in conversion
+                            match = re.search("([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{1,2}).*", last_sync)
+                            if match == None:
+                                raise Exception("Could not convert {} to RFC3339/ISO8601 time string".format(last_sync))
+                            last_sync_datetime = datetime.strptime(match.group(1), '%Y-%m-%dT%H:%M:%S')
                             if (datetime.utcnow() - last_sync_datetime) < timedelta(hours=12):
                                 synced = synced+1
                                 synced_names.append(group.get('name', ""))
