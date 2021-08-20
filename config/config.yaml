@@ -11,24 +11,6 @@ host_id: '${ANCHORE_HOST_ID}'
 internal_ssl_verify: False
 auto_restart_services: True
 
-feeds:
-  sync_enabled: False
-  ssl_verify: True
-  selective_sync:
-    enabled: True
-    feeds:
-      github: True
-      vulnerabilities: True
-      packages: False
-      nvdv2: True
-  anonymous_user_username: anon@ancho.re
-  anonymous_user_password: pbiU2RYZ2XrmYQ
-  url: 'https://ancho.re/v1/service/feeds'
-  client_url: 'https://ancho.re/v1/account/users'
-  token_url: 'https://ancho.re/oauth/token'
-  connection_timeout_seconds: 3
-  read_timeout_seconds: 60
-
 default_admin_password: 'foobar'
 default_admin_email: 'admin@myanchore'
 
@@ -103,3 +85,23 @@ services:
     cycle_timers:
       feed_sync: 21600 # 6 hours between feed syncs
       feed_sync_checker: 3600 # 1 hour between checks to see if there needs to be a task queued
+    vulnerabilities:
+      # Available providers are legacy and grype. Legacy provider offers the same matching logic as previous versions of anchore-engine (<= 0.9.4)
+      # grype is a new provider that was introduced in 1.0.0, it uses the grype tool for all things vulnerabilities
+      provider: legacy
+      sync:
+        enabled: false
+        ssl_verify: true
+        connection_timeout_seconds: 3
+        read_timeout_seconds: 60
+        data:
+          # The following feeds are synced if provider is set to legacy
+          vulnerabilities:
+            enabled: true
+            url: https://ancho.re/v1/service/feeds
+          nvdv2:
+            enabled: true
+            url: https://ancho.re/v1/service/feeds
+          github:
+            enabled: true
+            url: https://ancho.re/v1/service/feeds
