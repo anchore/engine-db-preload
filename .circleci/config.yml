@@ -115,6 +115,10 @@ workflows:
           name: build_test_push_slim_preload_image_v0101
           anchore_version: v0.10.1
           context: dockerhub
+      - build_test_push_slim_preload_image:
+          name: build_test_push_slim_preload_image_v0102
+          anchore_version: v0.10.2
+          context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v094
           anchore_version: v0.9.4
@@ -126,4 +130,8 @@ workflows:
       - build_test_push_preload_image:
           name: build_test_push_preload_image_v0101
           anchore_version: v0.10.1
+          context: dockerhub
+      - build_test_push_preload_image:
+          name: build_test_push_preload_image_v0102
+          anchore_version: v0.10.2
           context: dockerhub
