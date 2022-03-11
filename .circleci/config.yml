@@ -20,7 +20,8 @@ jobs:
       anchore_version: 
         default: ""
         type: string
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     resource_class: large
     steps:
       - checkout
@@ -46,7 +47,8 @@ jobs:
       anchore_version: 
         default: ""
         type: string
-    machine: true
+    machine:
+      image: ubuntu-2004:202201-02
     resource_class: large
     environment:
       IMAGE_REPO: docker.io/anchore/engine-db-preload-slim
