@@ -76,11 +76,11 @@ workflows:
     jobs:
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_dev
-          anchore_version: v0.9.4
+          anchore_version: dev
           context: dockerhub
       - build_test_push_preload_image:
           name: build_test_push_preload_image_dev
-          anchore_version: v0.9.4
+          anchore_version: dev
           context: dockerhub
 
   tagged_build_all:
