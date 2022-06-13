@@ -12,6 +12,11 @@
   tags:
     only: /^v[0-9]+(\.[0-9]+)*$/
 
+parameters:
+  force_trigger_nightly_build:
+    type: boolean
+    default: false
+
 # Start circleci configuration
 version: 2.1
 jobs:
@@ -73,6 +78,10 @@ jobs:
 
 workflows:
   default_workflow:
+    when:
+      not:
+        equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
+
     jobs:
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_dev
@@ -84,6 +93,10 @@ workflows:
           context: dockerhub
 
   tagged_build_all:
+    when:
+      not:
+        equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
+
     jobs:
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_all
@@ -97,13 +110,12 @@ workflows:
           filters: *filter_semver_tags
 
   nightly_build:
-    triggers:
-      - schedule:
-          cron: "0 9 * * *"
-          filters:
-            branches:
-              only:
-                - master
+    when:
+      or:
+        - and:
+            - equal: [ scheduled_pipeline, << pipeline.trigger_source >> ]
+            - equal: [ "nightly_build", << pipeline.schedule.name >> ]
+        - << pipeline.parameters.force_trigger_nightly_build >>
     jobs:
       - build_test_push_slim_preload_image:
           name: build_test_push_slim_preload_image_v094
